@@ -1,0 +1,68 @@
+c
+c      last modified:  11/26/2018 rhd
+c
+      integer mxndel, max_threads,
+     &    mxlbel, mxndof, mxgp, nstr, mxlc,
+     &    mxmat,mxelmp,mxstmp, mxstc,
+     &    mxoupr,ntrc,mxconn,mxvl,mxnmgp,
+     &    mxblsz,nparam,mxelpr,vclim,
+     &    mxmtpr,mxsepr,two16,ndim,max_tables,
+     &    mxtim,nstrs,max_procs,mxndpr,max_crystals,max_slip_sys,
+     &    max_uhard, mxcvtests,
+     &    mxecor, mxedof, mxndldcm, mxtnsz,
+     &    mxutsz, mxnusz, mxoupt, max_surfaces, max_tied_sets,
+     &    max_packet_types, max_user_lists,
+     &    nonlocal_shared_state_size, max_interface_props
+
+      parameter( mxndel=20,max_threads=128,
+     &    mxlbel=19,mxndof=3,mxgp=14,nstr=6,mxlc=5000,
+     &    mxmat=500,mxelmp=30,mxstmp=30, mxstc=10,
+     &    mxoupr=30,ntrc=10,mxconn=100,mxvl=128,mxnmgp=10,
+     &    mxblsz=128,nparam=3,mxelpr=43,vclim=28,
+     &    mxmtpr=300,mxsepr=16,two16=65536,ndim=3,max_tables=20,
+     &    mxtim=50,nstrs=9,max_procs=128,mxndpr=8,max_crystals=1000,
+     &    max_slip_sys=48, max_uhard=48, max_surfaces=100,
+     &    max_tied_sets=100, max_packet_types=200, max_user_lists=500,
+     &    mxcvtests=10, nonlocal_shared_state_size=12,
+     &    max_interface_props=80 )
+c
+      parameter( mxecor=3*mxndel,mxedof=mxndof*mxndel,
+     &  mxndldcm=mxndof+1,
+     &  mxtnsz=ndim*ndim,
+     &  mxutsz=(mxedof*mxedof+mxedof)/2,
+     &  mxnusz=(mxndel*mxndel+mxndel)/2 )
+c
+c                ****  READ ****
+c
+c        the value of mxoupt must be set to the maximum of
+c        mxndel and mxgp. the fortran standard does not permit
+c        use of an intrinsic function (max) in a parameter
+c        statement -  would be nice !
+c
+c                **** warning ****
+c
+c        look in mod_main.f. the declared sizes of matprp MUST match
+c        the values: mxmtpr x mxmat
+c
+      parameter( mxoupt=mxndel )
+c
+c
+c                **** Other *critical* notes ****
+c
+c     mxvl=128 is the maximum number of elements allowed in a block.
+c     the filter program value must be set to this same value -- it
+c     translates compiler directive commands marked with @!DIR which
+c     include ### for mxvl
+c
+c     mxblsz is used only to size the length of a message vector.
+c            It has nothing to do with the maximum block sizes.
+c
+c     mxvl sets the maximum block size permitted in a model. Many
+c          arrays are created on the stack using thre size of this
+c          variable.
+c
+c     max_threads has no connection to the maximum block size, number of
+c                 domains (with MPI). It allows automatic arrays
+c                 to be created/deleted on the stack where element
+c                 blocks are processed.
+c

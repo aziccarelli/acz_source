@@ -1,0 +1,51 @@
+
+
+                     README for WARP3D /src Directory
+                        (Updated February 2021)
+
+
+==========================================================================
+
+
+1. OVERVIEW
+
+This directory contains all the source code and makefiles for
+WARP3D. All source code is in *.f files. Modules are named "mod...".
+
+We support WARP3D on:
+
+    o Windows (64-bit) 
+    o Linux 64-bit (tested on Ubuntu 18.04 LTS)
+    o Mac OS 10.15 (built on Catalina. May well work on Big Sur)
+
+We use the Intel Fortran compiler as the primary compiler on all
+3 platforms.
+
+On Linux, the gfortran compiler works every well.
+
+On Mac OSX, the gfortran compiler works very well if can be configured to
+run on your system -- this is sometimes not straightforward !
+
+See the specific README files for each platform in the top level
+directory.
+
+2. MAXIMUM SIZE OF MODELS
+
+No size limits. All global arrays are dynamically allocated.
+
+The "main" program for WARP3D is in the file "main_program.f".
+
+
+==============================================================================
+
+
+2. BUILD/COMPILE PROCESS  ** Important **
+
+Please see the Quickstart document for each platform for complete,
+up-to-date procedures to rebuild the ode on each platform.
+
+==============================================================================
+
+
+
+END OF README
