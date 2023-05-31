@@ -2791,19 +2791,19 @@ c      if( local_debug ) write(iout,*) '  @ 2'
       if ( matchs_exact('f_n')              ) go to 1010
       if ( matchs_exact('n')                ) go to 1015
       if ( matchs_exact('n_max')            ) go to 1020
-      if ( matchs_exact('ddczm_intf')       ) go to 1030
+      if ( matchs_exact('acz_intf')       ) go to 1030
       if ( matchs_exact('swdm')             ) go to 1032
       if ( matchs_exact('vgm')              ) go to 1034
-      if ( matchs_exact('swdm_c')           ) go to 1040
+      if ( matchs_exact('swdfm_c')           ) go to 1040
       if ( matchs_exact('vgm_crit')         ) go to 1042 ! two admissible names
       if ( matchs_exact('vgi_crit')         ) go to 1042 ! two admissible names
-      if ( matchs_exact('swdm_lambda')      ) go to 1050
-      if ( matchs_exact('swdm_beta')        ) go to 1055
-      if ( matchs_exact('swdm_kappa')       ) go to 1060
+c      if ( matchs_exact('swdm_lambda')      ) go to 1050
+      if ( matchs_exact('swdfm_beta')        ) go to 1055
+      if ( matchs_exact('swdfm_kappa')       ) go to 1060
       if ( matchs_exact('G_eff')            ) go to 1070
-      if ( matchs_exact('ddczm_platpct')    ) go to 1080
+      if ( matchs_exact('acz_platpct')    ) go to 1080
       if ( matchs_exact('damp_coeff')       ) go to 1090
-      if ( matchs_exact('delta0')           ) go to 1100
+      if ( matchs_exact('delta_u')           ) go to 1100
       if ( matchs_exact('linear_tsl_debug') ) go to 1110
       if ( matchs_exact('ddczm_damage_off') ) go to 1115
       if ( matchs_exact('lstars')           ) go to 1120 ! two admissible names
@@ -2867,8 +2867,9 @@ c
      &                          matprp(ddczm_loc+9),
      &                          matprp(ddczm_loc+10)
                write(iout,9310)
-               write(iout,9315) vgi_crit, swdm_c, swdm_kappa, 
-     &                          swdm_lambda, swdm_beta,
+               write(iout,9315) vgi_crit, swdfm_c, swdfm_kappa, 
+c     &                          swdm_lambda, swdm_beta,
+     &                          swdfm_beta,
      &                          ddczm_dmg_type, ddczm_damage_on
              end if
            end if
@@ -3382,7 +3383,7 @@ c
 c
 c **********************************************************************
 c *                                                                    *
-c *      properties for ductile damage-based cohesive material         *
+c *      properties for adaptive cohesive zone material                *
 c *                                                                    *
 c **********************************************************************
 c
@@ -3391,9 +3392,9 @@ c       ddczm_loc+2  = empty
 c       ddczm_loc+3  = empty
 c       ddczm_loc+4  = empty
 c       ddczm_loc+5  = effective cohesive energy, G_eff
-c       ddczm_loc+6  = ddczm plateau percent, ddczm_platpct
+c       ddczm_loc+6  = acz plateau percent, acz_platpct
 c       ddczm_loc+7  = damping coefficient
-c       ddczm_loc+8  = delta0; critical separation of cohesive element
+c       ddczm_loc+8  = delta_u; critical separation of cohesive element
 c       ddczm_loc+9  = linear_tsl_debug (check if >1.0)
 c       ddczm_loc+10 = empty
 c
@@ -3401,7 +3402,7 @@ c       other params: stiffn, stiffs, stifft, sig_peak, comp_multiplier
 c       are all stored in the "default" locations
 c 
 c       damage-specific params are stored in the module mod_damage_ddczm.
-c           swdm_c, swdm_lambda, swdm_kappa, swdm_beta, vgi_crit
+c           swdfm_c, swdfm_lambda, swdfm_kappa, swdfm_beta, vgi_crit
 c        
 c       when adding new properties, check local_debug printouts.
 c       see format label 9250 (matprp) and 9315 (module)
@@ -3412,18 +3413,18 @@ c
       matprp(44) = 8.0  ! ctype (real)
       matprp(54) = 1.0 ! compression stiffness mult.
       matprp(ddczm_loc+1:ddczm_loc+11) = 0.0 ! init (most defaults are zero)
-      matprp(ddczm_loc+6) = 0.75 ! init ddczm_platpct (default value)
+      matprp(ddczm_loc+6) = 0.75 ! init acz_platpct (default value)
       local_ddczm_type = .true.
 c  
 c     default damage values.
 c     note that ddczm_damage_on=.false. is already initialized. 
 c  
       ddczm_dmg_type = 0
-      swdm_c      = 0.0d0
+      swdfm_c      = 0.0d0
       vgi_crit    = 99.0d0
-      swdm_lambda = 0.0d0
-      swdm_kappa  = 0.0d0
-      swdm_beta   = 1.0d0
+c      swdfm_lambda = 0.0d0
+      swdfm_kappa  = 0.0d0
+      swdfm_beta   = 1.0d0
 c     
 c     continue reading properties
 c     
@@ -3446,8 +3447,8 @@ c
  1040 continue
 c     store directly in module variable
 c     note that numd() required for double precision vars
-      if( .not. numd(swdm_c) ) then
-        call errmsg(5,dum,'swdm_c',dumr,dumd)
+      if( .not. numd(swdfm_c) ) then
+        call errmsg(5,dum,'swdfm_c',dumr,dumd)
       end if
       if( ddczm_dmg_type.ne.1 ) go to 1032 
       go to 210
@@ -3461,27 +3462,27 @@ c     note that numd() required for double precision vars
       if( ddczm_dmg_type.ne.2 ) go to 1034 
       go to 210
 c
- 1050 continue
+c 1050 continue
 c     store directly in module variable
 c     note that numd() required for double precision vars
-      if( .not. numd(swdm_lambda) ) then
-        call errmsg(5,dum,'swdm_lambda',dumr,dumd)
-      end if
-      go to 210
+c      if( .not. numd(swdm_lambda) ) then
+c        call errmsg(5,dum,'swdm_lambda',dumr,dumd)
+c      end if
+c      go to 210
 c
  1055 continue
 c     store directly in module variable
 c     note that numd() required for double precision vars
-      if( .not. numd(swdm_beta) ) then
-        call errmsg(5,dum,'swdm_beta',dumr,dumd)
+      if( .not. numd(swdfm_beta) ) then
+        call errmsg(5,dum,'swdfm_beta',dumr,dumd)
       end if
       go to 210
 c
  1060 continue
 c     store directly in module variable
 c     note that numd() required for double precision vars
-      if( .not. numd(swdm_kappa) ) then
-        call errmsg(5,dum,'swdm_kappa',dumr,dumd)
+      if( .not. numd(swdfm_kappa) ) then
+        call errmsg(5,dum,'swdfm_kappa',dumr,dumd)
       end if
       go to 210
 c
@@ -3496,10 +3497,10 @@ c
  1080 continue
 c     *** MUST CHANGE DDCZM INIT (LABEL 1030) IF THIS LOCATION CHANGES ***
       if( .not. numr(matprp(ddczm_loc+6)) ) then
-        call errmsg(5,dum,'ddczm_platpct',dumr,dumd)
+        call errmsg(5,dum,'acz_platpct',dumr,dumd)
       end if
       if( .not. local_ddczm_type )
-     &  call inmat_err_message(7,'ddczm_platpct',13)
+     &  call inmat_err_message(7,'acz_platpct',13)
       matprp(96) = matprp(ddczm_loc+6) ! duplicate into ppr space for shape_normal
       go to 210
 c
@@ -3512,9 +3513,9 @@ c
       go to 210
 c
  1100 continue
-c     delta0: ddczm critical separation 
+c     delta_u: ddczm critical separation 
       if( .not. numr(matprp(ddczm_loc+8)) ) then 
-        call errmsg(5,dum,'delta0',dumr,dumd)
+        call errmsg(5,dum,'delta_u',dumr,dumd)
       end if 
       if( .not. local_ddczm_type )
      &  call inmat_err_message(5,'disp0',6)

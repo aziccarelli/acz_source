@@ -108,7 +108,8 @@ c
 c                     scalar double precision
 c
       double precision :: 
-     &   swdm_c, swdm_kappa, swdm_lambda, swdm_beta, vgi_crit
+c     &   swdm_c, swdm_kappa, swdm_lambda, swdm_beta, vgi_crit
+     &   swdfm_c, swdfm_kappa, swdfm_beta, vgi_crit
 c
 c                     scalar integers
 c
@@ -169,6 +170,7 @@ c
       case ( 1, 5, 8 )
 c     material model 1
 c     material model 5
+c     material model 8
       indx = 3
 c
       case default 
@@ -203,6 +205,7 @@ c
       case ( 1, 5, 8 )
 c     material model 1 
 c     material model 5
+c     material model 8
       indx = 4
 c
       case default 
@@ -311,12 +314,14 @@ c
      1       stress_n1, mises, triax, peeq_n, peeq_n1, lodeang, 
      2       dmg_intgrnd_n, dmg_intgrnd_n1, dmg_intgrl_n, 
      3       dmg_intgrl_n1, peeq_comp_n, peeq_comp_n1,
-     4       damage, c_prop, kappa, lambda, beta)
+c     4       damage, c_prop, kappa, lambda, beta)
+     4       damage, c_prop, kappa, beta)
 c
       implicit none
       double precision, intent(in) ::
      &     stress_n1(6), peeq_n, peeq_n1, peeq_comp_n, 
-     &     dmg_intgrnd_n, dmg_intgrl_n, c_prop, kappa, lambda, beta
+c     &     dmg_intgrnd_n, dmg_intgrl_n, c_prop, kappa, lambda, beta
+     &     dmg_intgrnd_n, dmg_intgrl_n, c_prop, kappa, beta
       double precision, intent(out) ::
      &     mises, triax, lodeang, dmg_intgrnd_n1, dmg_intgrl_n1, 
      &     damage, peeq_comp_n1
@@ -380,9 +385,9 @@ c
 c     evaluate the integral using trap rule
 c
       if ((triax .gt. -one*four) .and. (triax .lt. four)) then
-         dmg_intgrnd_n1 = exp(kappa * abs(lodeang)) *
-     &                ( beta*exp(triaxfact*triax) 
-     &                          - exp(-triaxfact*triax) )
+         dmg_intgrnd_n1 = exp(kappa * (abs(lodeang) - one) ) *
+     &                ( exp(triaxfact*triax) - (one/beta)*
+     &                            exp(-triaxfact*triax) )
 c
          dmg_intgrl_n1 = half * (dmg_intgrnd_n + dmg_intgrnd_n1) * dpeeq
          dmg_intgrl_n1 = dmg_intgrl_n1 + dmg_intgrl_n ! increment + previous
@@ -394,7 +399,8 @@ c
 c 
       if( dmg_intgrl_n1 .lt. zero ) dmg_intgrl_n1 = zero 
 c 
-      damage = dmg_intgrl_n1 * exp( lambda * peeq_comp_n1 ) * c_prop
+c      damage = dmg_intgrl_n1 * exp( lambda * peeq_comp_n1 ) * c_prop
+      damage = dmg_intgrl_n1 * c_prop
 c
 c
 c

@@ -483,7 +483,7 @@ c
 c
       local_debug = .false.
 c
-      c_val = swdm_c
+c      c_val = swdfm_c
 c
 c
 c            RETRIEVE HISTORY DATA
@@ -501,7 +501,8 @@ c
      &               peeq_n, peeq_n1, lodeang, dmg_intgrnd_n,
      &               dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1,
      &               peeq_comp_n, peeq_comp_n1, damage,
-     &               c_val, swdm_kappa, swdm_lambda, swdm_beta )
+c     &               c_val, swdm_kappa, swdm_lambda, swdm_beta )
+     &               swdfm_c, swdfm_kappa, swdfm_beta )
 c
 c
 c            UPDATE HISTORY DATA

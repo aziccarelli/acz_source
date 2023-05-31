@@ -340,8 +340,9 @@ c
         write(iout,9000) step, iter, span, felem, gpn, mxvl
 c       print material props
         write(iout,9010)
-        write(iout,9015) vgi_crit, swdm_c, swdm_kappa,
-     &                   swdm_lambda, ddczm_dmg_type
+        write(iout,9015) vgi_crit, swdfm_c, swdfm_kappa,
+c     &                   swdm_lambda, ddczm_dmg_type
+     &                    ddczm_dmg_type
       end if 
 c       
 c     determine damage model (assign to logical for readability)
@@ -378,7 +379,7 @@ c
      &              peeq_n, peeq_n1, lodeang, dmg_intgrnd_n, 
      &              dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1, 
      &              peeq_comp_n, peeq_comp_n1, damage, 
-     &              swdm_c, swdm_kappa, swdm_lambda, swdm_beta)
+     &              swdfm_c, swdfm_kappa, swdfm_beta)
 c     
 c       
         elseif( type_vgm ) then

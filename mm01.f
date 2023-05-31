@@ -263,7 +263,7 @@ c
 c            locals
 c 
       integer :: i
-      logical :: local_debug, type_swdm, type_vgm
+      logical :: local_debug, type_swdfm, type_vgm
       double precision ::
      &    triax, mises, peeq_n, peeq_n1, lodeang,
      &    dmg_intgrnd_n, dmg_intgrnd_n1, 
@@ -285,16 +285,17 @@ c
         write(iout,9000)
 c       print material props
         write(iout,9010)
-        write(iout,9015) vgi_crit, swdm_c, swdm_kappa,
-     &                   swdm_lambda, ddczm_dmg_type
+        write(iout,9015) vgi_crit, swdfm_c, swdfm_kappa,
+c     &                   swdm_lambda, ddczm_dmg_type
+     &                    ddczm_dmg_type
       end if 
 c       
 c     determine damage model (assign to logical for readability)
       if( ddczm_dmg_type .eq. 1 ) then
-        type_swdm = .true.
+        type_swdfm = .true.
         type_vgm  = .false.
       elseif( ddczm_dmg_type .eq. 2 ) then
-        type_swdm = .false.
+        type_swdfm = .false.
         type_vgm  = .true.
       else
         write(iout,9900)
@@ -313,14 +314,14 @@ c
 c       retrieve current PEEQ
         peeq_n1  = history1(i,3)
 c
-        if( type_swdm ) then 
+        if( type_swdfm ) then 
 c 
           call compute_swdm_ddczm( 
      &             stress_n1(i,1:6), mises, triax,
      &             peeq_n, peeq_n1, lodeang, dmg_intgrnd_n, 
      &             dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1, 
      &             peeq_comp_n, peeq_comp_n1, damage, 
-     &             swdm_c, swdm_kappa, swdm_lambda, swdm_beta )
+     &             swdfm_c, swdfm_kappa, swdfm_beta )
 c       
         elseif( type_vgm ) then
 c
