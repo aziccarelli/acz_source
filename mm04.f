@@ -377,9 +377,6 @@ c ------------------------------------------------------------------
 c
       local_debug = intfprps(1,29) .gt. zero
 c
-c      local_debug = local_debug.or.(felem.eq.  60) .and. (gpn.eq.2) ! DDCZM debugging
-c      local_debug = local_debug.or.(felem.eq.5201) .and. (gpn.eq.2) ! DDCZM debugging
-c      local_debug = local_debug.or.(felem.eq.5297) .and. (gpn.eq.2) ! DDCZM debugging
 c 
 c 
       call mm04_set_sizes( info_vector ) 
@@ -594,14 +591,14 @@ c
 c
       case ( 8 )
 c     =========
-c     ductile damage-based cohesive zone model (ddczm)
+c     ductile damage-based cohesive zone model (acz)
 c
       if( .not. nonlocal ) then  ! only viable for nonlocal formulation
           write(iout,9602)
           call die_abort   
       end if
 c
-      call mm04_ddczm_driver( step, iter, span, iout, mxvl, felem, gpn,  
+      call mm04_acz_driver( step, iter, span, iout, mxvl, felem, gpn,  
      &                    dtime, elem_killed, intfprps, trac_n, trac_n1,
      &                    reladis, delrlds, history, history1, 
      &                    top_surf_stresses_n, bott_surf_stresses_n,
@@ -664,7 +661,7 @@ c
  9600 format('>>>> FATAL ERROR: cavitation cohesive model',
      & /,    '                  requires the nonlocal option.',
      & /,    '                  job terminated by mm04' )
- 9602 format('>>>> FATAL ERROR: SWDM cohesive model',
+ 9602 format('>>>> FATAL ERROR: SWDFM cohesive model',
      & /,    '                  requires the nonlocal option.',
      & /,    '                  job terminated by mm04' )
  9625 format(/,10x,"more nonlocal data (material type, solid state",
@@ -2231,8 +2228,8 @@ c
 c                     locals
 c
       integer :: i, j, iand, cavit_loc, start_col, nvalues, 
-     &           ddczm_loc
-      logical :: is_ppr, local_debug, is_cavit, bad, is_ddczm
+     &           acz_loc
+      logical :: is_ppr, local_debug, is_cavit, bad, is_acz
       double precision :: value
       double precision, parameter :: zero = 0.0d00, one = 1.0d00
 c
@@ -2292,7 +2289,7 @@ c
 c
       is_ppr    = cohes_type .eq. 6
       is_cavit  = cohes_type .eq. 7
-      is_ddczm  = cohes_type .eq. 8
+      is_acz  = cohes_type .eq. 8
 c
 c             set up for ppr formulation.
 c
@@ -2321,14 +2318,14 @@ c
           end do
       end if
 c
-c              set up for ddczm formulation.
+c              set up for acz formulation.
 c
-      if( is_ddczm ) then
-         ddczm_loc = 230 ! must match inmat.f
+      if( is_acz ) then
+         acz_loc = 230 ! must match inmat.f
          start_col = 29  ! see table above, simply take cavit location for now
          nvalues   = 10  ! must match inmat.f
          do j = 1, nvalues
-           value = matprp(ddczm_loc+j)
+           value = matprp(acz_loc+j)
            intfprps(1:span,start_col+j) = value
           end do
       end if
@@ -2900,17 +2897,17 @@ c
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine mm04_ddczm_driver                   *
+c    *               subroutine mm04_acz_driver                     *
 c    *                                                              *
 c    *          written by : Vincente Pericoli                      *
-c    *         modified by : Xai Lao                                *
-c    *       last modified : 12/05/2018                             *
+c    *         modified by : Andy Ziccarelli                        *
+c    *       last modified : 05/31/2023                             *
 c    *                                                              *
-c    *     driver for ductile damage cohesive zone model            *
+c    *     driver for adaptive cohesive zone model                  *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine mm04_ddczm_driver( 
+      subroutine mm04_acz_driver( 
      1                    step, iter, span, iout, mxvl, felem, gpn,
      2                    dtime, elem_killed, intfprps, trac_n, trac_n1, 
      3                    reladis, delrlds, history, history1, 
@@ -2919,7 +2916,7 @@ c
      6                    top_surf_elems, bott_surf_elems,
      7                    top_solid_matl, bott_solid_matl  )
 c 
-      use mod_damage_ddczm, get_dmg_indx => getmm_nonlocal_damage_index,
+      use mod_damage_acz, get_dmg_indx => getmm_nonlocal_damage_index,
      &                      get_triax_indx => getmm_nonlocal_triax_index
       implicit none
 c 
@@ -2965,12 +2962,12 @@ c     ==================================================================
 c     STEP 0: init checks
 c
       if( first_iter ) 
-     &      call mm04_ddczm_initchk( span, iout, mxvl, intfprps )
+     &      call mm04_acz_initchk( span, iout, mxvl, intfprps )
 c
 c     ==================================================================
 c     STEP 1: compute ductile damage
 c
-      if( .not. ddczm_damage_on ) then
+      if( .not. acz_damage_on ) then
         damage(1:span) = zero
         triax(1:span)  = zero
 c 
@@ -3037,7 +3034,7 @@ c
         end do
 c
       else
-        call mm04_traction_ddczm( 
+        call mm04_traction_acz( 
      1                   span, iout, mxvl, felem, gpn, subrt_debug,
      2                   dtime, elem_killed, intfprps, trac_n, trac_n1,
      3                   reladis, delrlds, history, history1, damage )
@@ -3045,24 +3042,24 @@ c
 c
       return
 c
- 9015 format(/3x,">>>>> Warning: DDCZM linear TSL is requested.")
+ 9015 format(/3x,">>>>> Warning: ACZ linear TSL is requested.")
 c
-      end subroutine mm04_ddczm_driver
+      end subroutine mm04_acz_driver
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine mm04_ddczm_initchk                  *
+c    *               subroutine mm04_acz_initchk                    *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *      last modified : 12/05/2018 VSP                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
 c    *     initialization check: check input props                  *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine mm04_ddczm_initchk( span, iout, mxvl, intfprps )
+      subroutine mm04_acz_initchk( span, iout, mxvl, intfprps )
 c 
-      use mod_damage_ddczm, only: ddczm_damage_on
+      use mod_damage_acz, only: acz_damage_on
       implicit none
 c 
       integer, intent(in)  :: span, iout, mxvl
@@ -3113,7 +3110,7 @@ c
 c 
 c     check that sig_max is defined (if applicable)
 c 
-      if( .not. ddczm_damage_on ) then 
+      if( .not. acz_damage_on ) then 
 c       check that sig_peak is defined 
         if( any(intfprps(1:span,5).lt.ztol) ) then 
           write(iout,9910) "sig_peak"
@@ -3138,30 +3135,30 @@ c
  9930 format(/1x, ">>>>> ERROR: all elements in span must share ",
      &       /14x,"same value of linear_tsl_debug")
  9999 format('>>>> Errors detected.',
-     &       ' Analysis terminated by mm04_ddczm_initchk.')
+     &       ' Analysis terminated by mm04_acz_initchk.')
 c
-      end subroutine mm04_ddczm_initchk
+      end subroutine mm04_acz_initchk
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine mm04_traction_ddczm                 *
+c    *               subroutine mm04_traction_acz                   *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *        modified by : Xai Lao                                 *
-c    *      last modified : 12/05/2018 VSP                          *
+c    *        modified by : Andy Ziccarelli                         *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
-c    *     compute tractions for the ductile damage CZM.            *
+c    *     compute tractions for the adaptive CZM.                  *
 c    *     the peak opening traction is a function of               *
 c    *     ductile damage.                                          *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine mm04_traction_ddczm( 
+      subroutine mm04_traction_acz( 
      1                   span, iout, mxvl, felem, gpn, subrt_debug,
      2                   dtime, elem_killed, intfprps, trac_n, trac_n1,
      3                   reladis, delrlds, history, history1, damage  )
 c  
-      use mod_damage_ddczm, only: ddczm_damage_on, unsafe_division
+      use mod_damage_acz, only: acz_damage_on, unsafe_division
       implicit none
 c 
       integer, intent(in) :: span, iout, mxvl, felem, gpn
@@ -3188,9 +3185,9 @@ c
      &    dmg_slope, plat_pct, prior_max_deff, prior_mde_trac,
      &    deff, deff_n, deff_inc, damp_coeff, disp_crit, stiffe_cyc,
      &    sig_peak_n, damage_nm1, damage_inc, triax, deff_zero,
-     &    d_turn, disp_cyc, sig_elastic, stiff_ratio, trac_eff_env,
-     &    reload_flag, trac_comp, disp1_mod, disp2_mod, deff_shift,
-     &    stiffe_n, disp1_n
+     &    d_resid, disp_cyc, sig_elastic, stiff_ratio, trac_eff_env,
+     &    reload_flag, trac_comp, disp1_mod, disp2_mod,
+     &    stiffe_n, disp1_n, alpha_sig0
       character(len=11) :: branch_char
 c
       double precision, parameter ::               ! damage parameters (slope setting)
@@ -3223,11 +3220,11 @@ c
       do i = 1, span
 c    
       local_debug = .false.
-      if((felem+i-1 .eq. 3586) )then
-          if ((gpn .eq. 1) .or. (gpn .eq. 3))  then
-            local_debug = .true.
-          end if
-      end if
+c      if((felem+i-1 .eq. 3586) )then
+c          if ((gpn .eq. 1) .or. (gpn .eq. 3))  then
+c            local_debug = .true.
+c          end if
+c      end if
       if( elem_killed(i) ) cycle ! note debug info won't be printed
 c     
 c     ==================================================================
@@ -3244,11 +3241,12 @@ c
       comp_mult  = intfprps(i,22) ! compression multiplier
       plat_pct   = intfprps(i,35) ! percent of plateau (controls unloading slope and remaining energy)
       damp_coeff = intfprps(i,36) ! controls artificial damping to resist elastic-snapback instability
-      disp_crit  = intfprps(i,37) ! critical opening separation 
+      disp_crit  = intfprps(i,37) ! critical opening separation
+      alpha_sig0 = intfprps(i,38) ! compressive loding parameter 
 c
 c     read in sig_max if traditional trapezoidal shape is requested
 c
-      if( .not. ddczm_damage_on ) sig_peak = intfprps(i,5) ! effective cohesive strength 
+      if( .not. acz_damage_on ) sig_peak = intfprps(i,5) ! effective cohesive strength 
 c     
 c     ==================================================================
 c     STEP 2:
@@ -3268,7 +3266,7 @@ c     STEP 3a:
 c     obtain material state 
 c 
 c     HISTORY VARIABLES:
-c     history(i,1)  = damage (set in mm04_ddczm_driver)
+c     history(i,1)  = damage (set in mm04_acz_driver)
 c     history(i,2)  = sig_peak
 c     history(i,3)  = trac_eff_n
 c     history(i,4)  = prior_max_deff
@@ -3278,9 +3276,9 @@ c     history(i,7)  = is_loading (for cnst4)
 c     history(i,8)  = disp1      (for cnst4, can be changed to calcs to free space)
 c     history(i,9)  = disp2_n    (for cnst4, can be changed to calcs to free space)
 c     history(i,10) = max_disp   (for cnst4, can be changed to calcs to free space)
-c     history(i,11) = nonlocal triaxiality (set in mm04_ddczm_driver)
-c     history(i,12) = re-loading flag for cyclic <<- AJZ ADDED!
-c     history(i,13) = d_turn <<- AJZ ADDED
+c     history(i,11) = nonlocal triaxiality (set in mm04_acz_driver)
+c     history(i,12) = re-loading flag for cyclic
+c     history(i,13) = d_resid
 c     history(i,14) = deff_n
 c     history(i,15) = elastic_flag (for cnst4...see step 6)
 c     
@@ -3293,22 +3291,17 @@ c
       crack_has_opened = history(i,6) .gt. one   ! see if crack has "initiated"
       coh_stren_soft   = history(i,6) .gt. three ! see if TSL is softening 
       coh_stren_zero   = history(i,6) .gt. five  ! see if crack has propagated
-      triax            = history(i,11) ! <<<---- AJZ ADDED FOR DEBUGGING
-      reload_flag      = history(i,12) ! <<- AJZ ADDED!
-      d_turn           = history(i,13) ! <<- AJZ ADDED!
+      disp1_n          = history(i,8)  !
+      stiffe_n         = history(i,10) !
+      triax            = history(i,11) ! 
+      reload_flag      = history(i,12) ! 
+      d_resid          = history(i,13) !
       deff_n           = history(i,14) ! 
-      stiffe_n         = history(i,10) ! <<- AJZ ADDED
-      disp1_n          = history(i,8)  ! <<- AJZ ADDED
 c
 c 
 c     determine positive loading condition
 c     if this logic is changed, must re-evaluate cyclic logic. 
 c
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c      is_loading = ( .not. crack_has_opened ) .or.
-c     &             (  (deff .ge. prior_max_deff*(one-ztol))
-c     &                .and. (deff_inc .ge. zero)    )
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       is_loading = .false.
       if (.not. crack_has_opened) is_loading = .true.
       if (reload_flag .gt. three) reload_flag = zero
@@ -3318,8 +3311,6 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
           is_loading = .true.
         end if
       end if
-
-
 c 
 c     determine plastic excursion
 c 
@@ -3330,7 +3321,6 @@ c     Add check for case when snaps from tension to compression
 c
       tens_pl_excr = (damage_inc .gt. dtol .and. triax  .gt. zero)
 c        tensile plastic excursion
-c                   NOTE: AJZ CHANGE  ^^ 
 c     
 c     
 c     ==================================================================
@@ -3349,9 +3339,9 @@ c     i.e. set sig_peak adaptively according to damage level
 c     
       set_sigpk_trac = .false.
 c      
-      if( ddczm_damage_on ) then 
+      if( acz_damage_on ) then 
 c       The above check is here so that we can have a "standard" 
-c       trapezoidal TSL if we want to, i.e. if ddczm_damage_on is false. 
+c       trapezoidal TSL if we want to, i.e. if acz_damage_on is false. 
 c       In that case, sig_peak is set by the user via intfprps (above).
 c       Otherwise, sig_peak is set by the code block below.
 c 
@@ -3360,7 +3350,6 @@ c         if the crack has previously opened, suspend degradation algorithm.
 c         use the previously set sig_peak.
 c          sig_peak = sig_peak_n
 c       
-c        elseif( (.not.crack_has_opened)   .and. 
         if( (deff_inc .lt. zero)   .and. 
      &          (damage(i) .gt. one) .and. tens_pl_excr ) then
 c         this could indicate a unique situation where damage is increasing, 
@@ -3390,7 +3379,6 @@ c           adaptively degrade the plateau stress, sig_peak.
 c 
           else
 c           for elastic or compressive excursions, disable adaptive degrading. 
-c        elseif (damage(i) .gt. dmg_crit ) then
             sig_peak = sig_peak_n
           end if 
 c           
@@ -3441,17 +3429,7 @@ c
       elseif( (G_eff .lt. ztol) .and. (disp_crit .gt. ztol) ) then
 c       TSL defined by disp_crit
         disp1    = sig_peak / stiffe
-c        if (crack_has_opened) then
-c           disp1 = disp1_n
-c        else if (damage(i).ge.one) then
-c           disp1 = deff_n
-c        else if (damage(i).lt.dstar) then
-c           disp1    = sig_peak / stiffe
-c        else
-c          disp1 = deff + (sig_peak_n-trac_eff_n)/stiffe_n
-c        end if
         max_disp = disp1 + disp_crit
-c        max_disp = disp_crit
         disp2    = plat_pct * (max_disp - disp1) + disp1
 c 
       else 
@@ -3475,15 +3453,14 @@ c
       if( coh_stren_zero ) then 
 c       this gauss point has been destroyed already
 c       check if contact condition
+c       if yes, use elastic stiffness 
+c       (with modifier for numerical stability)
+c       otherwise, traction is zero
         if (is_compression) then
-          if (abs(deff_shift) .lt. ztol) then
-            deff_shift = zero
-          end if
-          trac_eff_n1 = (stiffe*1.0d-04)* abs(deff-deff_shift)
+          trac_eff_n1 = (stiffe*1.0d-04)* abs(deff)
           if( local_debug ) branch_char = 'contact'
         else
           trac_eff_n1    = zero
-          deff_shift = zero
           if( local_debug ) branch_char = 'extinct'
         end if
 c
@@ -3493,24 +3470,16 @@ c       evaluate potential branches.
 c 
         if( (deff .lt. disp1) .and. (.not. crack_has_opened) ) then
 c         elastic branch
-c          if (damage(i) .lt. dstar) then 
               trac_eff_n1 = stiffe * deff
               stiffe_n = stiffe
-c          else
-c              trac_eff_n1 = trac_eff_n + (stiffe * (one - 
-c     &         ((damage(i) - dstar)/(one - dstar))**1.0d-01)) 
-c     &         * deff_inc
-c              stiffe_n = (stiffe * (one - 
-c     &         ((damage(i) - dstar)/(one - dstar))**1.0d-01)) 
-c          end if
           if( local_debug ) branch_char = 'elastic'
 c 
 c         if needed, re-set sig_peak according to change in adaptive 
 c         degradation algorithm (see explanation above)
           if( set_sigpk_trac ) sig_peak = trac_eff_n1
 
-c         set d_turn
-          d_turn = zero
+c         set d_resid
+          d_resid = zero
 c          
         elseif( deff .lt. disp2 ) then
 c         plateau branch, crack has opened.
@@ -3524,8 +3493,6 @@ c
 c         unloading branch. based on Cornec et al. (2003)
 
           unlsubvar   = (deff - disp2) / (max_disp - disp2)
-c         trac_eff_n1 =(two*unlsubvar**3-three*unlsubvar**2+one)
-c    &                  * sig_peak
           trac_eff_n1 = sig_peak*(one-unlsubvar)
           coh_stren_soft = .true.
           if( local_debug ) branch_char = 'unloading'
@@ -3547,68 +3514,102 @@ c       cyclic unloading/reloading.
 c       note that elastic region is avoided here 
 c       via definition of is_loading. 
 c
+c       this section uses the variable "reload_flag"
+c       as a state indicator
+c
+c       reload_flag = zero -> cohesive element is unloading
+c       from tension to compression, but the displacement 
+c       remains greater than zero
+c
+c       reload_flag = two -> cohesive displacement has reached
+c       zero from previous cycle. element is either in compression
+c       or reloading in tension on subsequent cycle
+c
+c       reload_flag = four -> plastic strain has re-initiated with
+c       critical level of damage on subsequent cycle. re-establish
+c       the traction-separation relationship
+c
         if (is_compression) reload_flag = two
 c
 c
         if (reload_flag .lt. one) then
+c        element is unloading
+c        first check whether element is in tension or compression
+
           stiffe_cyc = min( ((e_steel/prior_max_deff)*
      &         (one - prior_max_deff/max_disp)) ,stiffe)
-          d_turn = prior_max_deff-(prior_mde_trac/stiffe_cyc)
+          d_resid = prior_max_deff-(prior_mde_trac/stiffe_cyc)
           trac_eff_n1 = prior_mde_trac - stiffe_cyc*
      &         (prior_max_deff - deff)
           trac_comp = zero
-          if (local_debug) branch_char = 'branch1'      
+          if (local_debug) branch_char = 'branch1'
+
           if (trac_eff_n1 .lt. ztol) then
-            stiffe_cyc = 3.0d01/(d_turn + 3.0d01/stiffe)
+c          if element is in compression
+
+            stiffe_cyc = alpha_sig0/(d_resid + alpha_sig0/stiffe)
             is_compression = .true.
             deff = sqrt( ds1**2 + ds2**2 )
             trac_eff_n1 = deff*stiffe_cyc
-            trac_comp = (dn - d_turn)*stiffe_cyc
+            trac_comp = (dn - d_resid)*stiffe_cyc
           end if
 c
         elseif (reload_flag .gt. one) then
+c        cohesive displacement has reduced to zero
+
           if (is_compression) then
+c          element is in compression
+c
             stiffe_cyc = stiffe*(1.0d-02)
             if (local_debug) branch_char = 'comp'
+
           else
-c            stiffe_cyc = stiffe*((one - prior_max_deff/max_disp)**two)
+c          element is reloading on subsequent cycle
+
             stiffe_cyc = min ( (prior_mde_trac/prior_max_deff)*
      &                       (1.0d00), stiffe )
             if (local_debug) branch_char = 'reload'
+c
           end if
           trac_eff_n1 = stiffe_cyc*deff
         end if
 c
         reset_plat = .false.
+c
         if (damage(i).gt.one .and. tens_pl_excr) then
+
           if (reload_flag .lt. one) then
             if (trac_comp .ge. zero) then
+c            edge case - partial unload then reload
               reset_plat = .true.
             end if
           end if
 
           if (reload_flag .gt. one) then
             if (.not. is_compression) then
+c            on reloading branch on subsequent cycle
                reset_plat = .true.
             end if
           end if
 
         end if
+
         if (reload_flag .gt. one) then
-c          if ( deff .gt. three*max_disp/four) then
+c        if previous maximum displacement is reached
           if (deff .gt. prior_max_deff) then
             reset_plat = .true.
           end if
         end if
 c
         if (reset_plat) then
+c        re-calculate TSR
+
           prior_max_deff = deff
           prior_mde_trac = trac_eff_n1
 c
           disp1_mod = trac_eff_n1/stiffe
           max_disp = disp1_mod + disp_crit
           disp2_mod = plat_pct*(max_disp-disp1_mod)+disp1_mod
-c          sig_peak = trac_eff_n1
           if (deff .lt. disp2_mod) then
             sig_peak = trac_eff_n1
           elseif (deff .gt. disp2_mod) then
@@ -3616,11 +3617,9 @@ c          sig_peak = trac_eff_n1
             sig_peak = trac_eff_n1/(one-unlsubvar)
           end if
 c
-c          reload_flag = zero
           if (reload_flag .gt. one) then
             reload_flag = four
           end if
-c          is_loading = .true.
           disp1 = disp1_mod
           disp2 = disp2_mod
           if (local_debug) branch_char = 'reset_plat'
@@ -3653,13 +3652,13 @@ c     STEP 7:
 c     update the history variables.
 c     if you change these indices, must update in cnst4, states
 c     
-c     history1(i,1) = damage(i)   ! updated in mm04_ddczm_driver
+c     history1(i,1) = damage(i)   ! updated in mm04_acz_driver
       history1(i,2) = sig_peak
       history1(i,3) = trac_eff_n1
       history1(i,4) = prior_max_deff
       history1(i,5) = prior_mde_trac
       history1(i,12) = reload_flag 
-      history1(i,13) = d_turn
+      history1(i,13) = d_resid
       history1(i,14) = deff
       history1(i,15) = stiffe_cyc
       history1(i,10) = stiffe_n
@@ -3770,8 +3769,8 @@ c
       return
 c =======================================================================
 c
- 9000 format(/,5x,"...... entered mm04_traction_ddczm .....")
- 9010 format(/7x,"DDCZM Traction props and calcs:",
+ 9000 format(/,5x,"...... entered mm04_traction_acz .....")
+ 9010 format(/7x,"ACZ Traction props and calcs:",
      & /9x,"i  ",2x,"elem",5x,"stiffeff",5x,"G_eff",4x,"sig_peak",
      &  8x,"disp1",9x,"disp2",7x,"max_disp",9x,"deff",11x,"trac_eff",
      &  4x,"branch",2x,"small_effdis")
@@ -3780,12 +3779,12 @@ c
  9920 format(/1x,">>>>> ERROR:",
      &           "definition of critical disp or energy is required,",
      &      /12x,"and both cannot be simultaneously defined.",
-     &      /12x,"job terminated by mm04_traction_ddczm")
+     &      /12x,"job terminated by mm04_traction_acz")
  9950 format(/1x,">>>>> ERROR: mm04 logic error, type: ", a20, 
-     &       /14x,"job terminated by mm04_traction_ddczm. ",
+     &       /14x,"job terminated by mm04_traction_acz. ",
      &       /14x,"elem: ",i8," gpn: ",i2)
 c
-      end subroutine mm04_traction_ddczm
+      end subroutine mm04_traction_acz
 c     
 c
 c     ****************************************************************
@@ -3864,7 +3863,7 @@ c
      &           cohesive_type
 
       integer :: elem_type, felem, mat_type, int_points, span
-      logical :: do_a_block, local_debug, is_cavit, is_ddczm
+      logical :: do_a_block, local_debug, is_cavit, is_acz
       double precision, parameter :: zero = 0.0d00
 c      
 c           build cohesive states values output.
@@ -3901,12 +3900,12 @@ c
 c
 c
       is_cavit = .false.
-      is_ddczm = .false.
+      is_acz = .false.
       select case ( cohesive_type )
         case ( 7 )
           is_cavit = .true.
         case ( 8 )
-          is_ddczm = .true.
+          is_acz = .true.
         case default
           write(out,9000) felem
           call die_abort
@@ -3924,7 +3923,7 @@ c
            elnum = felem + relem - 1  ! absolute element number
            one_elem_states(1:nrow_states) = zero 
            if (is_cavit) call mm04_states_values_cavit
-           if (is_ddczm) call mm04_states_values_ddczm
+           if (is_acz) call mm04_states_values_acz
            elem_states_output(1:nrow_states,relem) = 
      &                one_elem_states(1:nrow_states)
         end do
@@ -3932,7 +3931,7 @@ c
         relem = elnum + 1 - felem
         one_elem_states(1:nrow_states) = zero
         if (is_cavit) call mm04_states_values_cavit
-        if (is_ddczm) call mm04_states_values_ddczm
+        if (is_acz) call mm04_states_values_acz
         elem_states_output(1:nrow_states,1) =
      &                one_elem_states(1:nrow_states)
       end if  
@@ -4022,16 +4021,16 @@ c
 c
 c     ****************************************************************
 c     *                                                              *
-c     *             subroutine mm04_states_values_ddczm              *
+c     *             subroutine mm04_states_values_acz                *
 c     *                                                              *
 c     *                       written by : Vincente Pericoli         *
-c     *                      modified by : Xai Lao                   *
+c     *                      modified by : Andy Ziccarelli           *
 c     *                                                              *
-c     *                   last modified : 12/05/2018                 *
+c     *                   last modified : 05/31/2023                 *
 c     *                                                              *
 c     ****************************************************************
 c
-      subroutine mm04_states_values_ddczm
+      subroutine mm04_states_values_acz
 c   
       implicit none      
 c
@@ -4113,7 +4112,7 @@ c      one_elem_states(9)  = zero
 c
       return     
 c
-      end subroutine mm04_states_values_ddczm
+      end subroutine mm04_states_values_acz
       end subroutine mm04_states_values
 c     ****************************************************************
 c     *                                                              *
@@ -4500,7 +4499,7 @@ c
      & dn, comp_multiplier
 c
       logical elem_killed(mxvl), local_debug, debug_ppr,
-     &        debug_exp1, linear_debug_ddczm
+     &        debug_exp1, linear_debug_acz
 c
       double precision, parameter ::
      & zero = 0.0d0, e = 2.71828182845904523536d0, tol = 0.1d0, 
@@ -4668,12 +4667,12 @@ c
       case ( 8 )
 c     =========
 c     
-c     ductile damage-based cohesive zone model (ddczm)
+c     ductile damage-based cohesive zone model (acz)
 c         compute tangent [D] matrix
 c
-      linear_debug_ddczm = intfprps(1,38) .gt. one
+      linear_debug_acz = intfprps(1,38) .gt. one
 c
-      if ( linear_debug_ddczm ) then
+      if ( linear_debug_acz ) then
         do i = 1,span
           cep(i,1,1) = intfprps(i,2) 
           cep(i,2,2) = intfprps(i,3) 
@@ -4686,7 +4685,7 @@ c
         end do
 c
       else
-        call cnst4_ddczm( step, span, felem, gpn, iout, mxvl, 
+        call cnst4_acz( step, span, felem, gpn, iout, mxvl, 
      &                    dtime, elem_killed, intfprps, reladis,
      &                    history, history1, intfmat)
 c
@@ -5182,11 +5181,11 @@ c
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine cnst4_ddczm                         *
+c    *               subroutine cnst4_acz                           *
 c    *                                                              *
 c    *          written by : Vincente Pericoli                      *
-c    *         modified by : Xai Lao                                *
-c    *       last modified : 12/05/2018 VSP                         *
+c    *         modified by : Andy Ziccarelli                        *
+c    *       last modified : 05/31/2023 AJZ                         *
 c    *                                                              *
 c    *     computes the tangent stiffness [D_T] for a  block        *
 c    *     cohesive elements for the ductile damage-based           *
@@ -5194,11 +5193,11 @@ c    *     cohesive zone model                                      *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine cnst4_ddczm( step, span, felem, gpn, iout, mxvl, 
+      subroutine cnst4_acz( step, span, felem, gpn, iout, mxvl, 
      &                        dtime, elem_killed, intfprps, reladis,
      &                        history, history1, intfmat)
 c
-      use mod_damage_ddczm, only: ddczm_damage_on, unsafe_division
+      use mod_damage_acz, only: acz_damage_on, unsafe_division
       implicit none
 c
 c                   parameter definitions
@@ -5226,7 +5225,8 @@ c
      &   prior_max_deff, prior_mde_trac, trac_eff,
      &   ds1de, ds2de, dnde, dtde, damp_stf, stiff_ratio,
      &   unlsubvar, trac_eff_env, deff_inc, reload_flag,
-     &   d_turn, dn_debug, stiffe_cyc, dmg, disp_crit
+     &   d_resid, dn_debug, stiffe_cyc, dmg, disp_crit,
+     &   alpha_sig0
       double precision, parameter :: 
      &   ztol = 1.0d-13, zero = 0.0d00, half = 0.50d00, 
      &   threeqtr = 0.75d00, one = 1.0d00, two = 2.0d00, 
@@ -5244,25 +5244,11 @@ c     this subroutine references history variables to obtain the
 c     previously converged values for damage, separation, and traction
 c     ==================================================================
 c
-c 
-      do i = 1, span
-        local_debug = .false.
-c        if((felem+i-1 .gt. 54740) )then
-c          if((felem+i-1 .lt. 54765) )then
-c            if ((gpn .eq. 1) .or. (gpn .eq. 3))  then
-c              local_debug = .true.
-c            end if
-c          end if
-c        end if
-c        if( (felem+i-1 .gt. 64951) .and. (felem+i-1 .lt. 64962) )then
-c         if (gpn .eq. 2)  then
-c           local_debug = .true.
-c         end if
-c        end if
-c        if( local_debug ) write (iout,9000)
-        if( elem_killed(i) ) cycle
+        do i = 1, span
+          local_debug = .false.
 c
-c       ================================================================
+          if( elem_killed(i) ) cycle
+c
 c       STEP 1:
 c       retrieve displacements, props
 c
@@ -5272,7 +5258,6 @@ c
         dn_debug = reladis(i,3)
 c
         stiffe     = intfprps(i,4)
-c        sig_peak   = intfprps(i,5)
         G_eff      = intfprps(i,34)
         plat_pct   = intfprps(i,35)
         comp_mult  = intfprps(i,22)
@@ -5305,14 +5290,13 @@ c
         coh_stren_zero   = history1(i,6) .gt. five  ! see if crack has propagated
         is_loading       = history1(i,7) .gt. one   ! see if positive loading
         reload_flag      = history1(i,12)
-        d_turn           = history1(i,13)
+        d_resid          = history1(i,13)
         stiffe_cyc       = history1(i,15)
 c 
 c       obtain displacement branches
         disp1    = history1(i,8)
         disp2    = history1(i,9)
         max_disp = disp2 + disp_crit
-c        max_disp = history1(i,10)
 c
 c       ================================================================
 c       STEP 4:
@@ -5334,12 +5318,7 @@ c        this is "regular" traction calculation for positive loading
 c        
          if( (deff.lt.disp1).and.(.not.crack_has_opened) ) then
 c          elastic branch
-c           if (dmg .lt. dstar) then
             stiff_eff = stiffe
-c           else
-c            stiff_eff = stiffe * (one - ((dmg-dstar)
-c     &       /(one-dstar))**1.0d-01)
-c           end if
            if( local_debug ) branch_char = 'elastic'
 c        
          elseif( deff .lt. disp2 ) then 
@@ -5349,9 +5328,6 @@ c          plateau branch
 c        
          elseif( deff .lt. max_disp ) then 
 c          unloading branch, based on Cornec et al. (2003)
-c           stiff_eff = six * (deff - disp2) * (deff - max_disp)
-c     &                      / ((max_disp - disp2)**3)
-c           stiff_eff = stiff_eff * sig_peak
            stiff_eff = -sig_peak/(max_disp - disp2)
            if( local_debug ) branch_char = 'unloading'
 c        
@@ -5364,21 +5340,23 @@ c
         else
 c         cyclic loading
             if (reload_flag .lt. one) then
-              if (deff .gt. d_turn) then
+c            unloading from tension to compression
+              if (deff .gt. d_resid) then
                 stiff_eff = min( ((e_steel/prior_max_deff)*
      &             (one - prior_max_deff/max_disp)) ,stiffe)
-              elseif(deff .lt. d_turn) then
+              elseif(deff .lt. d_resid) then
                 is_compression = .true.
-                stiff_eff = 3.0d01/(d_turn + 3.0d01/stiffe)
+                stiff_eff = alpha_sig0/(d_resid + alpha_sig0/stiffe)
                 dn = zero
                 deff = sqrt( ds1**2 + ds2**2 )
               end if
+c
             elseif (reload_flag .gt. one) then
+c            cohesive element has closed or is reloading on
+c            subsequent cycle
               if (is_compression) then
                 stiff_eff = stiffe_cyc
               else
-c                stiff_eff = (prior_mde_trac/prior_max_deff)
-c                stiff_eff = stiffe*(one-prior_max_deff/max_disp)
                 stiff_eff = stiffe_cyc
               end if
             end if
@@ -5452,9 +5430,9 @@ c
 c
       return
 c
- 9000 format(/5x,"...... entered cnst4_ddczm .....")
+ 9000 format(/5x,"...... entered cnst4_acz .....")
 c 9010 format(5x,"    ==> elem ",i5," on branch ",a11)
- 9010 format(7x,"DDCZM Tangent props and calcs:",
+ 9010 format(7x,"ACZ Tangent props and calcs:",
      & /9x,"i  ",2x,"elem",4x,"G_eff",5x,"sig_peak",7x,"disp1",
      &  9x,"disp2",7x,"max_disp",8x,"deff",8x,"stiff_eff",3x,"branch",
      &  2x,"small_effdis",2x,"is_compression")
@@ -5465,10 +5443,10 @@ c 9010 format(5x,"    ==> elem ",i5," on branch ",a11)
  9800 format(/1x,'>>>>> error: the property: ',a,
      & /14x,'is outside of the permissible bounds...'/)
  9950 format(/1x,'>>>>> error: logic error',
-     &           '. job terminated by cnst4_ddczm. '
+     &           '. job terminated by cnst4_acz. '
      &           'elem: ',i7,' gpn: ',i2,/)
 c
-      end subroutine cnst4_ddczm
+      end subroutine cnst4_acz
 c
 c
 c     ****************************************************************

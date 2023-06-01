@@ -92,31 +92,31 @@ c
 c
 c     ****************************************************************
 c     *                                                              *
-c     *                   f-90 module mod_damage_ddczm               *
+c     *                   f-90 module mod_damage_acz                 *
 c     *                                                              *
 c     *                       written by : vsp                       *
 c     *                                                              *
-c     *              last modified : 12/30/17 vsp                    *
+c     *              last modified : 05/31/23 ajz                    *
 c     *                                                              *
 c     *     define the variables and data structures to support      *
-c     *     crack growth using nonlocal lstar DDCZM                  *
+c     *     crack growth using nonlocal lstar ACZ                    *
 c     *                                                              *
 c     ****************************************************************
 c
-      module mod_damage_ddczm
+      module mod_damage_acz
 c
 c                     scalar double precision
 c
       double precision :: 
-     &   swdm_c, swdm_kappa, swdm_lambda, swdm_beta, vgi_crit
+     &   swdfm_c, swdfm_kappa, swdfm_beta, vgi_crit
 c
 c                     scalar integers
 c
-      integer :: ddczm_dmg_type
+      integer :: acz_dmg_type
 c
 c                     scalar logicals
 c
-      logical :: ddczm_damage_on
+      logical :: acz_damage_on
 c
 c                     subroutines
 c
@@ -169,6 +169,7 @@ c
       case ( 1, 5, 8 )
 c     material model 1
 c     material model 5
+c     material model 8
       indx = 3
 c
       case default 
@@ -203,6 +204,7 @@ c
       case ( 1, 5, 8 )
 c     material model 1 
 c     material model 5
+c     material model 8
       indx = 4
 c
       case default 
@@ -219,18 +221,18 @@ c
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine compute_invariants_ddczm            *
+c    *               subroutine compute_invariants_acz              *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *      last modified : 04/03/2018 VSP                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
 c    *     subroutine to compute stress invariants                  *
 c    *                                                              *
 c    ****************************************************************
-      subroutine compute_invariants_ddczm( stress, mises, triax,
+      subroutine compute_invariants_acz( stress, mises, triax,
      &                                     lodeang )
 c 
-!DIR$ ATTRIBUTES INLINE :: compute_invariants_ddczm
+!DIR$ ATTRIBUTES INLINE :: compute_invariants_acz
 c
       implicit none 
       double precision, intent(in) :: stress(6)
@@ -291,35 +293,34 @@ c
 c 
       return 
 c 
-      end subroutine compute_invariants_ddczm
+      end subroutine compute_invariants_acz
 c
 c
 c
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine compute_swdm_ddczm                  *
+c    *               subroutine compute_swdfm_acz                   *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *      last modified : 08/09/2020 AJZ                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
-c    *     subroutine to compute SWDM damage parameter              *
+c    *     subroutine to compute SWDFM damage parameter             *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine compute_swdm_ddczm( 
+      subroutine compute_swdfm_acz( 
      1       stress_n1, mises, triax, peeq_n, peeq_n1, lodeang, 
      2       dmg_intgrnd_n, dmg_intgrnd_n1, dmg_intgrl_n, 
-     3       dmg_intgrl_n1, peeq_comp_n, peeq_comp_n1,
-     4       damage, c_prop, kappa, lambda, beta)
+     3       dmg_intgrl_n1,damage, c_prop, kappa, beta)
 c
       implicit none
       double precision, intent(in) ::
-     &     stress_n1(6), peeq_n, peeq_n1, peeq_comp_n, 
-     &     dmg_intgrnd_n, dmg_intgrl_n, c_prop, kappa, lambda, beta
+     &     stress_n1(6), peeq_n, peeq_n1, 
+     &     dmg_intgrnd_n, dmg_intgrl_n, c_prop, kappa, beta
       double precision, intent(out) ::
      &     mises, triax, lodeang, dmg_intgrnd_n1, dmg_intgrl_n1, 
-     &     damage, peeq_comp_n1
+     &     damage
 c
 c               local definitions
 c
@@ -340,22 +341,20 @@ c     (input)         peeq_n: the 1D mises equivalent plastic strain for previou
 c     (input)        peeq_n1: the 1D mises equivalent plastic strain for current step n+1.
 c    (update)        lodeang: normalized lode angle parameter for current step n+1. 
 c                              calculated from stress. see Malvern (1969).
-c     (input)  dmg_intgrnd_n: the SWDM damage integrand evaluated at previous step n.
-c    (update) dmg_intgrnd_n1: the SWDM damage integrand evaluated at current step n+1.
-c     (input)   dmg_intgrl_n: the SWDM damage integral evaluated from step 0 to n.
-c    (update)  dmg_intgrl_n1: the SWDM damage integral evaluated from step 0 to n+1.
-c     (input)    peeq_comp_n: the total compressive PEEQ at step n 
-c    (update)   peeq_comp_n1: the total compressive PEEQ at step n+1
-c    (update)         damage: the SWDM damage parameter.
+c     (input)  dmg_intgrnd_n: the SWDFM damage integrand evaluated at previous step n.
+c    (update) dmg_intgrnd_n1: the SWDFM damage integrand evaluated at current step n+1.
+c     (input)   dmg_intgrl_n: the SWDFM damage integral evaluated from step 0 to n.
+c    (update)  dmg_intgrl_n1: the SWDFM damage integral evaluated from step 0 to n+1.
+c    (update)         damage: the SWDFM damage parameter.
 c     (input)         c_prop: material property; ductility parameter.
 c     (input)          kappa: material property; lode angle influence parameter.
-c     (input)         lambda: material property; stress-independent degredation parameter.
+c     (input)           beta: material property; cyclic damage parameter.
 c
 c
 c               Step 1: compute stress invariants.
 c                       also need triax for step n. 
 c
-      call compute_invariants_ddczm( stress_n1, mises, triax, lodeang )
+      call compute_invariants_acz( stress_n1, mises, triax, lodeang )
 c
 c
 c               Step 2: Calculate the total change in PEEQ over step. 
@@ -364,25 +363,16 @@ c                       dPEEQ is either fully compressive or fully
 c                       tensile (transition region is elastic). 
 c
       dpeeq = (peeq_n1 - peeq_n) ! total change in PEEQ over step
-c 
-      if( triax .lt. zero ) then 
-        peeq_comp_n1 = peeq_comp_n + dpeeq
-      else 
-        peeq_comp_n1 = peeq_comp_n 
-      endif
 c
-c
-c
-c
-c               Step 3: Calculate SWDM Damage
+c               Step 3: Calculate SWDFM Damage
 c
 c
 c     evaluate the integral using trap rule
 c
       if ((triax .gt. -one*four) .and. (triax .lt. four)) then
-         dmg_intgrnd_n1 = exp(kappa * abs(lodeang)) *
-     &                ( beta*exp(triaxfact*triax) 
-     &                          - exp(-triaxfact*triax) )
+         dmg_intgrnd_n1 = exp(kappa * (abs(lodeang) - one) ) *
+     &                ( exp(triaxfact*triax) - (one/beta)*
+     &                            exp(-triaxfact*triax) )
 c
          dmg_intgrl_n1 = half * (dmg_intgrnd_n + dmg_intgrnd_n1) * dpeeq
          dmg_intgrl_n1 = dmg_intgrl_n1 + dmg_intgrl_n ! increment + previous
@@ -394,26 +384,26 @@ c
 c 
       if( dmg_intgrl_n1 .lt. zero ) dmg_intgrl_n1 = zero 
 c 
-      damage = dmg_intgrl_n1 * exp( lambda * peeq_comp_n1 ) * c_prop
+      damage = dmg_intgrl_n1 * c_prop
 c
 c
 c
 c
       return
-      end subroutine compute_swdm_ddczm
+      end subroutine compute_swdfm_acz
 c     
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine compute_vgm_ddczm                   *
+c    *               subroutine compute_vgm_acz                     *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *      last modified : 06/29/2017 VSP                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
 c    *     subroutine to compute monotonic VGM damage parameter     *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine compute_vgm_ddczm( stress, mises, triax_n1,
+      subroutine compute_vgm_acz( stress, mises, triax_n1,
      2                             peeq_n, peeq_n1,
      3                             vgi_intgrnd_n, vgi_intgrnd_n1,
      4                             vgi_n, vgi_n1, damage, vgi_crit )
@@ -449,7 +439,7 @@ c    (update)         damage: the VGM damage parameter, vgi_n1 / vgi_crit
 c
 c               Step 1: calculate stress invariants. Only triax needed. 
 c
-      call compute_invariants_ddczm( stress, mises, triax_n1, dumd )
+      call compute_invariants_acz( stress, mises, triax_n1, dumd )
 c
 c               Step 2: evaluate the VGI, use trap rule
 c
@@ -469,7 +459,7 @@ c
       damage = vgi_n1 / vgi_crit
 c
       return
-      end subroutine compute_vgm_ddczm
+      end subroutine compute_vgm_acz
 c
 c
-      end module mod_damage_ddczm
+      end module mod_damage_acz

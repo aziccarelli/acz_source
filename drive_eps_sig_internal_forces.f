@@ -2484,7 +2484,7 @@ c
 
       use elem_block_data, only:  solid_interface_lists, 
      &                            solid_interface_lists_lstar
-      use mod_damage_ddczm, only: ddczm_damage_on, 
+      use mod_damage_acz, only: acz_damage_on, 
      &                           getmm_nonlocal_damage_index
 c
       implicit none
@@ -2537,7 +2537,7 @@ c
         write(iout,9020) blk, span
       end if
 c 
-      if( .not. ddczm_damage_on ) then
+      if( .not. acz_damage_on ) then
         write(iout,9900)
         call die_abort
       end if 
@@ -2571,11 +2571,6 @@ c
           ray_dmg     = huge(zero)
 c
 c
-c         AJZ: INITIALIZE RUNNING SUM AND COUNTING VARIABLE
-c            : ALSO MAKE SURE TO INIT IN SUBROUTINE CALL
-C          run_sum = zero
-C          ctr = 0
-c
           do j = 1, nepr
 c
 c           get element label and material type
@@ -2595,13 +2590,8 @@ c
 c           determine the ductile damage for this ray
             call getmm_nonlocal_damage_index(iout, ray_matl, rmdi)
             elem_dmg = elem_local_vals(rmdi)
-
-c           AJZ: ADD TO RUNNING TOTAL, ADD COUNTER
-c           AJZ: COMMENT OUT BELOW
-C            run_sum = run_sum+elem_dmg
-C            ctr = ctr+1
-C            ray_dmg_ele = ray_elem
-
+c
+c
             if( elem_dmg .lt. ray_dmg ) then
               ray_dmg     = elem_dmg
               ray_dmg_ele = ray_elem
@@ -2611,10 +2601,7 @@ c
      &         write(iout,9040) i, ray_elem, ray_matl, elem_dmg
 c
           end do ! over ray elements
-
-c          AJZ: AVERAGE OUT DAMAGE OVER COUNTED ELEMENTS -> STORE IN RAY_DMG
-C          ray_dmg = (run_sum)/(ctr)
-
+c
 c 
 c         check if ray is empty
           if( ray_dmg_ele .eq. 0 ) ray_dmg = zero
