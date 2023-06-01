@@ -107,7 +107,7 @@ c
      6          plastic_mult, p_mult_numer, p_mult_denom, yield_function,
      7          isotropic_modulus, kin_modulus,
      8          stress_relative_norm, strain_trace, alpha_trace, e_k,
-     9          ID2_out_ID2, n_out_n, stress_hydro, sigma_vm,ddczm_on
+     9          ID2_out_ID2, n_out_n, stress_hydro, sigma_vm,acz_on
 
       double precision :: Lam, n33_check, alpha_out_n, beta, theta_1, 
      2         theta_2, theta_3,srn2, yield_function, isotropic_modulus,
@@ -204,7 +204,7 @@ C
         c_k(i) = props((N_BASIC_PROPS - 1) + 2 * i)
         gamma_k(i) = props(N_BASIC_PROPS + 2 * i)
       END DO
-      ddczm_on = props(12)
+      acz_on = props(12)
 C
 C      print*, 'e:',elastic_modulus
 C      print*, 'nu:',poission_ratio
@@ -394,8 +394,8 @@ C ----------------------------------------------------------------------C
       END DO
 
       triax_n1 = statev(25)
-      if (ddczm_on .lt. one) return
-      call umat_compute_ddczm(kinc, kiter, ntens, nstatv, npt,
+      if (acz_on .lt. one) return
+      call umat_compute_acz(kinc, kiter, ntens, nstatv, npt,
      &               stress, olds, statev, ep_eq_init, noel, triax_n1)
 c
 c    Update nonlocal variables
@@ -444,20 +444,20 @@ C ----------------------------------------------------------------------C
 
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine umat_compute_ddczm                  *
+c    *               subroutine umat_compute_acz                    *
 c    *                                                              *
 c    *         written by : Andy Ziccarelli                         *
-c    *      last modified : 05/15/2019 AJZ                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
-c    *     subroutine to compute DDCZM damage parameter.            *
+c    *     subroutine to compute ACZ damage parameter.              *
 c    *                                                              *
 c    ****************************************************************
 c
 c
-      subroutine umat_compute_ddczm(kinc, kiter, ntens, nstatv, npt,
+      subroutine umat_compute_acz(kinc, kiter, ntens, nstatv, npt,
      &                 stress, olds, statev, peeq_n, noel, triax_n1)
 
-      use mod_damage_ddczm
+      use mod_damage_acz
       implicit none
 c
       integer, intent(in) :: kinc, kiter, ntens, nstatv, noel, npt
@@ -476,14 +476,15 @@ c
 c
       double precision :: 
      &       mises, peeq_n, peeq_n1, lodeang,
-     &       peeq_comp_n, peeq_comp_n1,
      &       dmg_intgrnd_n, dmg_intgrnd_n1, 
      &       dmg_intgrl_n, dmg_intgrl_n1, damage,
      &       c_val
 c
+      double precision, parameter :: 
+     &       zero = 0.0d0
+c
       local_debug = .false.
 c
-c      c_val = swdfm_c
 c
 c
 c            RETRIEVE HISTORY DATA
@@ -491,18 +492,15 @@ c
 c
       dmg_intgrnd_n = statev(21)
       dmg_intgrl_n = statev(22)
-      peeq_comp_n = statev(24)
 c
 c     retrieve current peeq
       peeq_n1 = statev(1)
 c
 c
-      call compute_swdm_ddczm(stress, mises, triax_n1,
+      call compute_swdfm_acz(stress, mises, triax_n1,
      &               peeq_n, peeq_n1, lodeang, dmg_intgrnd_n,
      &               dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1,
-     &               peeq_comp_n, peeq_comp_n1, damage,
-c     &               c_val, swdm_kappa, swdm_lambda, swdm_beta )
-     &               swdfm_c, swdfm_kappa, swdfm_beta )
+     &               damage, swdfm_c, swdfm_kappa, swdfm_beta )
 c
 c
 c            UPDATE HISTORY DATA
@@ -512,7 +510,7 @@ c
       statev(21) = dmg_intgrnd_n1
       statev(22) = dmg_intgrl_n1
       statev(23) = damage
-      statev(24) = peeq_comp_n1
+      statev(24) = zero
       statev(25) = triax_n1 
 c
       if (local_debug) then
@@ -581,13 +579,13 @@ c      state_descriptors(2:7) = "Plastic strain component"
 c      state_descriptors(8:14) = "Backstress component"
 c
       state_labels(1) = "peeq"
-      state_labels(2) = "SWDM"
+      state_labels(2) = "SWDFM"
       state_labels(3) = "dpeeq"
-      state_labels(4) = "dSWDM"
+      state_labels(4) = "dSWDFM"
 c
 c
       state_descriptors(1) = "Equiv Plastic Strain"
-      state_descriptors(2) = "Ductile Damage"
+      state_descriptors(2) = "SWDFM"
       state_descriptors(3) = "Change in plastic strain"
       state_descriptors(4) = "Change in Damage"
 c
@@ -629,7 +627,9 @@ c
       nvals = 4
 c      
 c    First output: PEEQ
-c    Second output: SWDM
+c    Second output: SWDFM
+c    Third output: dPEEQ
+c    Fourth output: dSWDFM
 c
       output_statev(1) = statev(1)
       output_statev(2) = statev(23)

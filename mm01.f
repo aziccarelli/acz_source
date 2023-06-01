@@ -219,7 +219,7 @@ c
 c                       update nonlocal variables if necessary
 c
       if (.not. do_nonlocal) return
-      call mm01_compute_ddczm( span, local_out, mxvl, felem, gpn, 
+      call mm01_compute_acz( span, local_out, mxvl, felem, gpn, 
      &                         history, history1, cgn, cgn1, triax )
       do i = 1, span
         mises_equiv_eps_pls = history1(i,3)
@@ -237,21 +237,21 @@ c
 c
 c    ****************************************************************
 c    *                                                              *
-c    *               subroutine mm01_compute_ddczm                  *
+c    *               subroutine mm01_compute_acz                    *
 c    *                                                              *
 c    *         written by : Vincente Pericoli                       *
-c    *      last modified : 01/01/2018 VSP                          *
+c    *      last modified : 05/31/2023 AJZ                          *
 c    *                                                              *
-c    *     subroutine to compute DDCZM damage parameter.            *
+c    *     subroutine to compute ACZ damage parameter.              *
 c    *     this is done here so that history() use is unambiguous   *
 c    *                                                              *
 c    ****************************************************************
 c
-      subroutine mm01_compute_ddczm( span, iout, mxvl, felem, gpn,
+      subroutine mm01_compute_acz( span, iout, mxvl, felem, gpn,
      &                               history, history1, stress_n, 
      &                               stress_n1, triax_n1 )
 c
-      use mod_damage_ddczm
+      use mod_damage_acz
       implicit none
 c     
       integer, intent(in) :: span, iout, mxvl, felem, gpn
@@ -267,8 +267,7 @@ c
       double precision ::
      &    triax, mises, peeq_n, peeq_n1, lodeang,
      &    dmg_intgrnd_n, dmg_intgrnd_n1, 
-     &    dmg_intgrl_n, dmg_intgrl_n1, damage, 
-     &    peeq_comp_n, peeq_comp_n1
+     &    dmg_intgrl_n, dmg_intgrl_n1, damage
 c
       integer, parameter :: hoffset = 11 ! uses (hoffset+1:hoffset+5)
       double precision, parameter :: zero = 0.0d00
@@ -276,7 +275,7 @@ c
 c     init triax. if damage off, do not update hist vars (i.e. return)
 c  
       triax_n1(1:span) = zero 
-      if( .not. ddczm_damage_on ) return
+      if( .not. acz_damage_on ) return
 c
 c      local_debug =  (felem.eq.  37) .and. (gpn.eq.2)
       local_debug = .false.
@@ -286,15 +285,14 @@ c
 c       print material props
         write(iout,9010)
         write(iout,9015) vgi_crit, swdfm_c, swdfm_kappa,
-c     &                   swdm_lambda, ddczm_dmg_type
-     &                    ddczm_dmg_type
+     &                   swdfm_beta, acz_dmg_type
       end if 
 c       
 c     determine damage model (assign to logical for readability)
-      if( ddczm_dmg_type .eq. 1 ) then
+      if( acz_dmg_type .eq. 1 ) then
         type_swdfm = .true.
         type_vgm  = .false.
-      elseif( ddczm_dmg_type .eq. 2 ) then
+      elseif( acz_dmg_type .eq. 2 ) then
         type_swdfm = .false.
         type_vgm  = .true.
       else
@@ -309,24 +307,21 @@ c       retrieve history data
         peeq_n         = history(i,hoffset+1)
         dmg_intgrnd_n  = history(i,hoffset+2)
         dmg_intgrl_n   = history(i,hoffset+3)
-        peeq_comp_n    = history(i,hoffset+5)
 c       
 c       retrieve current PEEQ
         peeq_n1  = history1(i,3)
 c
         if( type_swdfm ) then 
 c 
-          call compute_swdm_ddczm( 
+          call compute_swdfm_acz( 
      &             stress_n1(i,1:6), mises, triax,
      &             peeq_n, peeq_n1, lodeang, dmg_intgrnd_n, 
      &             dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1, 
-     &             peeq_comp_n, peeq_comp_n1, damage, 
-     &             swdfm_c, swdfm_kappa, swdfm_beta )
+     &             damage,swdfm_c, swdfm_kappa, swdfm_beta )
 c       
         elseif( type_vgm ) then
 c
-          peeq_comp_n1 = zero ! meaningless in this context
-          call compute_vgm_ddczm( 
+          call compute_vgm_acz( 
      &                  stress_n1(i,1:6), mises, triax, peeq_n, 
      &                  peeq_n1, dmg_intgrnd_n, dmg_intgrnd_n1, 
      &                  dmg_intgrl_n, dmg_intgrl_n1, damage, vgi_crit )
@@ -342,7 +337,7 @@ c
         history1(i,hoffset+2) = dmg_intgrnd_n1
         history1(i,hoffset+3) = dmg_intgrl_n1
         history1(i,hoffset+4) = damage ! *** ensure damage state index is same *** 
-        history1(i,hoffset+5) = peeq_comp_n1
+        history1(i,hoffset+5) = zero
 c 
         if( local_debug ) then 
           write(iout,9020)
@@ -355,10 +350,10 @@ c
 c
       return
 c
- 9000 format(/3x,"...... entered mm01_compute_ddczm .....")
- 9010 format(/7x,"mod_damage_ddczm values:"
-     &       /9x,"vgi_crit",2x,"c_prop",2x,"kappa",2x,"lambda",
-     &        2x,"ddczm_dmg_type")
+ 9000 format(/3x,"...... entered mm01_compute_acz .....")
+ 9010 format(/7x,"mod_damage_acz values:"
+     &       /9x,"vgi_crit",2x,"c_prop",2x,"kappa",2x,"beta",
+     &        2x,"acz_dmg_type")
  9015 format(11x,f5.3,4x,f5.3,3x,f5.3,2x,f5.3,8x,i3)
  9020 format(/7x,"damage calculations:"
      &       /9x,"i  ",2x,"elem",10x,"mises",3x,"triax",2x,"lode_ang",
@@ -366,9 +361,9 @@ c
  9025 format(7x,i3,1x,i7,7x,
      &  f8.3,1x,f7.4,2x,f6.3,4x,f5.3,2x,e11.4,3x,e11.4,3x,e11.4)
  9900 format(/9x,">>> Error detecting damage model. Terminating")
- 9910 format(/9x,">>> ductile damage ddczm is not enabled!")
+ 9910 format(/9x,">>> adatpvie czm is not enabled!")
 c
-      end subroutine mm01_compute_ddczm
+      end subroutine mm01_compute_acz
 c 
 c     ****************************************************************          
 c     *                                                              *          

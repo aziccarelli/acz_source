@@ -2484,7 +2484,7 @@ c
 
       use elem_block_data, only:  solid_interface_lists, 
      &                            solid_interface_lists_lstar
-      use mod_damage_ddczm, only: ddczm_damage_on, 
+      use mod_damage_acz, only: acz_damage_on, 
      &                           getmm_nonlocal_damage_index
 c
       implicit none
@@ -2537,7 +2537,7 @@ c
         write(iout,9020) blk, span
       end if
 c 
-      if( .not. ddczm_damage_on ) then
+      if( .not. acz_damage_on ) then
         write(iout,9900)
         call die_abort
       end if 
