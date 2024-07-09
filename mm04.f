@@ -2953,7 +2953,7 @@ c
 c
       local_debug = .false.
       subrt_debug = .false.
-c      subrt_debug = (felem.eq.  60) .and. (gpn.eq.2)
+c      subrt_debug = (felem.lt.  3227) .and. (gpn.eq.2)
 c
       local_debug = subrt_debug .or. local_debug
       first_iter  = (step.eq.1).and.(iter.eq.1).and.(gpn.eq.1)
@@ -2981,12 +2981,21 @@ c         there should be a cleaner way to deal with this.
      &          (bott_surf_elems(i) .eq. 0) ) then 
             damage(i) = zero
             triax(i)  = zero
+            if (subrt_debug) then
+             print*,'no elements'
+            end if
           else
 c           pull nonlocal damage data
             call get_dmg_indx( iout, top_solid_matl(i), top_dindx )
             call get_dmg_indx( iout, bott_solid_matl(i), bott_dindx )
+
             damage(i) = max( top_nonlocal_vars(i,top_dindx),
      &                       bott_nonlocal_vars(i,bott_dindx) )
+            if (subrt_debug) then
+             print*,'top_dindx:', top_dindx
+             print*,'bott_dindx', bott_dindx
+             print*, 'Damage: ', damage(i)
+            end if
 c           pull nonlocal triaxiality associated with nonlocal damage data
 c               * this is currently used merely to write to states output
 c               * could be used in the future for setting properties as a function of triax

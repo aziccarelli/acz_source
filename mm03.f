@@ -12,7 +12,8 @@ c
      &  n_power, h_fixed, null_point, nucleation, stress_n, stress_n1,
      &  stress_n1_elas, p_trial, q_trial, history, history1,
      &  yld_func, nonlinear_flag, process_block, iout, segmental,
-     &  curve_type, felem, ym_n, nu_at_n, hist_size )
+     &  curve_type, felem, ym_n, nu_at_n, hist_size,
+     &  do_nonlocal, nonlocal_state, maxnonlocal)
 c
       use segmental_curves, only : now_blk_relem
 
@@ -22,16 +23,17 @@ c
 c               parameter declarations
 c
       integer :: step, iter, span, gpn, curve_type, felem, iout,
-     &           hist_size
+     &           hist_size, maxnonlocal
       double precision ::
      &  deps(mxvl,6), e(*), nu(*), sigma_o(*), f0(*), q1(*), q2(*),
      &  q3(*), stress_n(nstrs,*), stress_n1(nstrs,*),
      &  stress_n1_elas(mxvl,6,*), ym_n(*), nu_at_n(*),
      &  p_trial(*), q_trial(*), history(span,hist_size,*),
-     &  history1(span,hist_size,*), yld_func(*), n_power(*), h_fixed(*)
+     &  history1(span,hist_size,*), yld_func(*), n_power(*), h_fixed(*),
+     &  nonlocal_state(mxvl,maxnonlocal)
 c
       logical :: nucleation(*), nonlinear_flag(*), null_point(*),
-     &           process_block, segmental
+     &           process_block, segmental, do_nonlocal
 c
 c               locals
 c
@@ -85,6 +87,7 @@ c
          history1(i,7:9,gpn)     = zero
 !DIR$ VECTOR ALIGNED
          history1(i,10:15,gpn)   = history(i,10:15,gpn) ! no eps elastic change
+         history1(i,16:20,gpn)   = history(i,16:20,gpn) ! no ACZ change
        end do
        if ( debug ) write(iout,9000)
        return
@@ -278,9 +281,20 @@ c
 !DIR$ VECTOR ALIGNED
         history1(1:span,j,gpn)  = history(1:span,j,gpn)
       end do
-
+      do j = 16, 20
+!DIR$ VECTOR ALIGNED
+        history1(1:span,j,gpn)  = history(1:span,j,gpn)
+      end do
 c
-      return
+      if( .not. do_nonlocal ) then
+          return
+      else
+            nonlocal_state(1:span,1) = -one
+            nonlocal_state(1:span,2) = history1(1:span,1,gpn)
+            nonlocal_state(1:span,3) = history1(1:span,19,gpn) 
+            nonlocal_state(1:span,4) = zero  
+            return
+      end if
 c
  9000 format(/,'>> all points in element block are null')
  9010 format(/,'>> model 3 pre-processor for step, iter, span, gpn: ',
@@ -331,6 +345,7 @@ c                   4                     ! current H-prime
           history(i,9,gpn)  = zero        ! q   GT model
 !DIR$ VECTOR ALIGNED
           history(i,10:15,gpn) = zero     ! accumulated elastic strains
+          history(i,16:20,gpn) = zero     ! ACZ history variables
       end do
 c
 c               compute initial elastic strain values using user-defined
@@ -1518,10 +1533,10 @@ c
 c         4        number of state variables per point to be output
 c                  when user requests this type of results
 c
-      info_vector(1) = 15
+      info_vector(1) = 20
       info_vector(2) = 21
       info_vector(3) = 0
-      info_vector(4) = 6
+      info_vector(4) = 7
 c
       return
       end
@@ -1642,7 +1657,8 @@ c                       locals
 c
       integer :: ipt
       double precision ::
-     & epspls, state, dword, sigeff, hprime, porosity_f, rate_yield
+     & epspls, state, dword, sigeff, hprime, porosity_f, rate_yield,
+     & my_ddmg
        integer :: iword(2)
        equivalence ( dword, iword )
 c
@@ -1652,6 +1668,7 @@ c
       porosity_f = zero
       state      = zero
       rate_yield = zero
+      my_ddmg = zero
 c
       do ipt = 1, int_points
         epspls = epspls + history_dump(1,ipt,relem)
@@ -1661,6 +1678,7 @@ c
         dword  = history_dump(6,ipt,relem)
         state  = state + dble(iword(1))
         rate_yield = rate_yield + history_dump(9,ipt,relem)
+        my_ddmg = my_ddmg + history_dump(19,ipt,relem)
       end do
 c
       one_elem_states(1) = epspls / dble(int_points)
@@ -1669,6 +1687,7 @@ c
       one_elem_states(4) = porosity_f / dble(int_points)
       one_elem_states(5) = state / dble(int_points)
       one_elem_states(6) = rate_yield / dble(int_points)
+      one_elem_states(7)  = my_ddmg / dble(int_points)
 c
       return
 c
@@ -1703,13 +1722,14 @@ c                       locals
 c
       integer :: i
 c
-      num_states = 6
+      num_states = 7
       state_labels(1) = "epspls"
       state_labels(2) = "sig_flow"
       state_labels(3) = "H'"
       state_labels(4) = "porosity"
       state_labels(5) = "state"
       state_labels(6) = "q"
+      state_labels(7) = "damage"
 
       state_descriptors(1) = "Eq. plastic strain"
       state_descriptors(2) = "See states_header file"
@@ -1717,6 +1737,7 @@ c
       state_descriptors(4) = "Porosity (f)"
       state_descriptors(5) = "See states_header file"
       state_descriptors(6) = "See states header file"
+      state_descriptors(7)  = "ductile damage"
 c
 
 c
@@ -1942,24 +1963,25 @@ c
      &  ah_fixed, aq1, aq2, aq3, anucleation, anuc_s_n, anuc_e_n,
      &  anuc_f_n, stress_n, stress_n1, stress_n1_elas, deps, history,
      &  history1, f1, ap_trial, aq_trial, mxvl, hist_size,
-     &  asig_cur_min_val, span )
+     &  asig_cur_min_val, span, do_nonlocal, nonlocal_state, 
+     &  maxnonlocal )
 c
       implicit double precision (a-h,o-z)
 c
 c                   parameter declarations
 c
-      integer hist_size, span
+      integer hist_size, span, maxnonlocal
       dimension
      &    deps(mxvl,*), stress_n(*), stress_n1(*),
      &    history(span,hist_size,*), history1(span,hist_size,*),
-     &    stress_n1_elas(mxvl,6,*)
-      logical anucleation
+     &    stress_n1_elas(mxvl,6,*), nonlocal_state(mxvl,maxnonlocal)
+      logical anucleation, do_nonlocal
 c
       type :: arguments
         integer :: iter, abs_element, relem, ipoint, iout
         logical :: allow_cut, segmental, power_law,
      &             rate_depend_segmental, signal_flag, cut_step
-        double precision :: dtime, step_scale_fact
+        double precision :: dtime, step_scale_fact    
       end type
       type (arguments) ::args
 c
@@ -1989,7 +2011,8 @@ c
      &  eps_o, h_inviscid, inviscid_stress, dword, zero, half,
      &  one, two, three, third, six, hprime_init,
      &  dsig(6), deps_plas(6), factor1, factor2, deps_plas_bar,
-     &  sig_cur_min_val
+     &  sig_cur_min_val,
+     &  triax(mxvl), ductile_damage, mises_equiv_eps_pls
 
 c
       logical  debug, plastic_loading, nucleation, gurson,
@@ -2172,7 +2195,17 @@ c
       history1(relem,9,gpn)  = zero
       history1(relem,10:15,gpn) = history(relem,10:15,gpn) +
      &                            deps(relem,1:6) ! elas eps
-      return
+      history1(relem,16:20,gpn) = history(relem,16:20,gpn)
+
+      if( .not. do_nonlocal ) then
+          return
+      else
+            nonlocal_state(relem,1) = -one
+            nonlocal_state(relem,2) = history1(relem,1,gpn)
+            nonlocal_state(relem,3) = history1(relem,19,gpn) 
+            nonlocal_state(relem,4) = zero  
+            return
+      end if
 c
 c              trial elastic stresses are outside the yield surface.
 c              if just yielded from an elastic state, notify user.
@@ -2388,6 +2421,22 @@ c
          write(iout,9074) dsig(1:6)
       end if
 c
+
+      if( .not. do_nonlocal ) return
+
+      call mm03_compute_acz( span, local_out, mxvl, felem, gpn, 
+     &                         history, history1, stress_n, stress_n1,
+     &                         triax, hist_size, relem )
+c
+c      do i = 1, span
+        mises_eqiv_eps_pls = history1(relem,1,gpn)
+        ductile_damage     = history1(relem,19,gpn)
+        nonlocal_state(relem,1) = -one
+        nonlocal_state(relem,2) = mises_eqiv_eps_pls
+        nonlocal_state(relem,3) = ductile_damage ! index in getmm_nonlocal_damage_index
+        nonlocal_state(relem,4) = triax(relem)       ! index in getmm_nonlocal_triax_index
+c      end do
+c
       return
 c
 c
@@ -2469,8 +2518,10 @@ c
      & /,    '    dsig :',
      & /,10x,3e15.6,/,10x,3e15.6 )
 
+c
+c      return
+c
       contains
-
 c ************************************************************************
 c *                                                                      *
 c *    routine  mm03s --    3-d radial return procedure Gurson model     *
@@ -3033,7 +3084,142 @@ c
       return
       end subroutine mm03qq
       end subroutine mm03
-
+c
+c    ****************************************************************
+c    *                                                              *
+c    *               subroutine mm03_compute_acz                    *
+c    *                                                              *
+c    *         written by : Vincente Pericoli                       *
+c    *      last modified : 05/31/2023 AJZ                          *
+c    *                                                              *
+c    *     subroutine to compute ACZ damage parameter.              *
+c    *     this is done here so that history() use is unambiguous   *
+c    *                                                              *
+c    ****************************************************************
+c
+      subroutine mm03_compute_acz( span, iout, mxvl, felem, gpn,
+     &                               history, history1, stress_n, 
+     &                               stress_n1, triax_n1, hist_size,
+     &                                relem)
+c
+      use mod_damage_acz
+      implicit none
+      
+c     
+      integer, intent(in) :: span, iout, mxvl, felem, gpn,
+     &    hist_size,relem
+      double precision, intent(in) :: 
+     &    history(span,hist_size,*), stress_n(*),
+     &    stress_n1(*)
+      double precision, intent(inout) :: history1(span,hist_size,*)
+      double precision, intent(out) :: triax_n1(mxvl)
+c
+c            locals
+c 
+      integer :: i
+      logical :: local_debug, type_swdfm, type_vgm
+      double precision ::
+     &    triax, mises, peeq_n, peeq_n1, lodeang,
+     &    dmg_intgrnd_n, dmg_intgrnd_n1, 
+     &    dmg_intgrl_n, dmg_intgrl_n1, damage
+c
+      integer, parameter :: hoffset = 15 ! uses (hoffset+1:hoffset+5)
+      double precision, parameter :: zero = 0.0d00
+c 
+c     init triax. if damage off, do not update hist vars (i.e. return)
+c  
+      triax_n1(1:span) = zero 
+      if( .not. acz_damage_on ) return
+c
+c      local_debug = .false.
+c
+      if( local_debug ) then
+        write(iout,9000)
+c       print material props
+        write(iout,9010)
+        write(iout,9015) vgi_crit, swdfm_c, swdfm_kappa,
+     &                   swdfm_beta, acz_dmg_type
+      end if 
+c       
+c     determine damage model (assign to logical for readability)
+      if( acz_dmg_type .eq. 1 ) then
+        type_swdfm = .true.
+        type_vgm  = .false.
+      elseif( acz_dmg_type .eq. 2 ) then
+        type_swdfm = .false.
+        type_vgm  = .true.
+      else
+        write(iout,9900)
+        call die_abort
+      end if
+c
+c       
+c     loop thru span, computing damage
+c      do i = 1,span
+c       
+c       retrieve history data
+        peeq_n         = history(relem,hoffset+1,gpn)
+        dmg_intgrnd_n  = history(relem,hoffset+2,gpn)
+        dmg_intgrl_n   = history(relem,hoffset+3,gpn)
+c       
+c       retrieve current PEEQ
+        peeq_n1  = history1(relem,1,gpn)
+c
+        if( type_swdfm ) then 
+c 
+          call compute_swdfm_acz( 
+     &             stress_n1(1:6), mises, triax,
+     &             peeq_n, peeq_n1, lodeang, dmg_intgrnd_n, 
+     &             dmg_intgrnd_n1, dmg_intgrl_n, dmg_intgrl_n1, 
+     &             damage,swdfm_c, swdfm_kappa, swdfm_beta )
+c       
+        elseif( type_vgm ) then
+c
+          call compute_vgm_acz( 
+     &                  stress_n1(1:6), mises, triax, peeq_n, 
+     &                  peeq_n1, dmg_intgrnd_n, dmg_intgrnd_n1, 
+     &                  dmg_intgrl_n, dmg_intgrl_n1, damage, vgi_crit )
+          if( local_debug ) lodeang = zero
+c
+        end if ! damage type calcs
+        triax_n1(relem) = triax
+c 
+c       
+c       update history data
+c       
+        history1(relem,hoffset+1,gpn) = peeq_n1
+        history1(relem,hoffset+2,gpn) = dmg_intgrnd_n1
+        history1(relem,hoffset+3,gpn) = dmg_intgrl_n1
+        history1(relem,hoffset+4,gpn) = damage 
+        history1(relem,hoffset+5,gpn) = zero
+c
+c 
+        if( local_debug ) then 
+          write(iout,9020)
+          write(iout,9025) i, felem+i-1,
+     &        mises, triax, lodeang, peeq_n1,
+     &        dmg_intgrnd_n1, dmg_intgrl_n1, damage
+        end if
+c  
+c      end do ! over span
+c
+      return
+c
+ 9000 format(/3x,"...... entered mm03_compute_acz .....")
+ 9010 format(/7x,"mod_damage_acz values:"
+     &       /9x,"vgi_crit",2x,"c_prop",2x,"kappa",2x,"beta",
+     &        2x,"acz_dmg_type")
+ 9015 format(11x,f5.3,4x,f5.3,3x,f5.3,2x,f5.3,8x,i3)
+ 9020 format(/7x,"damage calculations:"
+     &       /9x,"i  ",2x,"elem",10x,"mises",3x,"triax",2x,"lode_ang",
+     &        2x,"peeq",4x,"dmg_intgrnd",5x,"dmg_intgrl",6x,"damage")
+ 9025 format(7x,i3,1x,i7,7x,
+     &  f8.3,1x,f7.4,2x,f6.3,4x,f5.3,2x,e11.4,3x,e11.4,3x,e11.4)
+ 9900 format(/9x,">>> Error detecting damage model. Terminating")
+ 9910 format(/9x,">>> adatpvie czm is not enabled!")
+c
+      end subroutine mm03_compute_acz
+c 
 c *********************************************************************
 c *                                                                   *
 c *   cnst3 -- tangent modulus matrix for gurson model                *

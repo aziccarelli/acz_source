@@ -311,7 +311,7 @@ c
 c
       select case( cohesive_type )
 c
-      case( 1, 2, 3, 5 )
+      case( 1, 2, 3, 5, 8 )
 c
         if( do_stress ) then
           call ouhrks_simple_tractions

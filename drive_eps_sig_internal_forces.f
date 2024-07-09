@@ -2529,8 +2529,7 @@ c
       step   = local_work%step
       blk    = local_work%blk
 c
-      local_debug = .false.
-c        local_debug = (felem.eq.60)
+c      local_debug = .false.
 c
       if( local_debug ) then
         write(iout,9000)
@@ -2579,6 +2578,7 @@ c           get element label and material type
 c            if( local_debug ) print*,'rel_elem',rel_elem
             if( ray_elem .eq. 0 ) cycle
             ray_matl = iprops(25,ray_elem)
+            if( local_debug ) print*,'ray_matl',ray_matl
 c
 c           obtain the nonlocal state for this element
             n = nonlocal_shared_state_size

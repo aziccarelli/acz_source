@@ -166,7 +166,7 @@ c
       select case ( mm )
 c     ----------------------
 c     
-      case ( 1, 5, 8 )
+      case ( 1, 3, 5, 8 )
 c     material model 1
 c     material model 5
 c     material model 8
@@ -201,7 +201,7 @@ c
       select case ( mm )
 c     ----------------------
 c     
-      case ( 1, 5, 8 )
+      case ( 1, 3, 5, 8 )
 c     material model 1 
 c     material model 5
 c     material model 8

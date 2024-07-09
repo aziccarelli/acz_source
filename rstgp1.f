@@ -865,6 +865,10 @@ c
      &           local_work%block_has_nonlocal_solids,
      &           local_work%nonlocal_state_blk(1,1),
      &           nonlocal_shared_state_size ) ! value in param_def
+c
+            if( local_work%block_has_nonlocal_solids )
+     &            call drive_01_update_nonlocal
+c
        call cnst1( span, cep, local_work%rtse(1,1,gpn),
      &            local_work%nu_vec,
      &            local_work%e_vec, local_work%elem_hist1(1,2,gpn),
@@ -1488,7 +1492,8 @@ c
      &                            local_work, uddt_displ, iout )
       use segmental_curves, only : max_seg_points, max_seg_curves,
      &                             now_blk_relem, sigma_curve_min_values
-      use elem_block_data, only : gbl_cep_blocks => cep_blocks
+      use elem_block_data, only : gbl_cep_blocks => cep_blocks,
+     &                            nonlocal_flags, nonlocal_data_n1
       use main_data, only : extrapolated_du
       use damage_data, only : use_mesh_regularization
       use constants
@@ -1984,7 +1989,10 @@ c
      &       local_work%nonlinear_flag,
      &       process_block, iout, segmental, curve_type, felem,
      &       local_work%e_vec_n, local_work%nu_vec_n,
-     &       hist_size_for_blk )
+     &       hist_size_for_blk,
+     &       local_work%block_has_nonlocal_solids,
+     &       local_work%nonlocal_state_blk(1,1),
+     &       nonlocal_shared_state_size )
 c
       if( process_block ) then
 c
@@ -2028,14 +2036,21 @@ c
      &         local_work%elem_hist(1,1,1),
      &         local_work%elem_hist1(1,1,1),
      &         yld_func(i), p_trial(i), q_trial(i), mxvl,
-     &         hist_size_for_blk, curve_min_value, span )
+     &         hist_size_for_blk, curve_min_value, span ,
+     &         local_work%block_has_nonlocal_solids,
+     &         local_work%nonlocal_state_blk(1,1),
+     &         nonlocal_shared_state_size )
         material_cut_step = material_cut_step .or. args%cut_step
       end do ! on span
 c
       local_work%material_cut_step = material_cut_step
       if( material_cut_step ) return
-
+c
+      if( local_work%block_has_nonlocal_solids )
+     &   call drive_03_update_nonlocal
+c
       end if   ! on process_block
+c
 c
       call cnst3(
      &  felem, gpn, iter, local_work%e_vec,
@@ -2050,6 +2065,57 @@ c
       return
 c
       end subroutine drive_03_update_a
+c     ****************************************************************
+c     *                                                              *
+c     *                 subroutine drive_03_update_nonlocal          *
+c     *                                                              *
+c     *                       written by : rhd                       *
+c     *                                                              *
+c     *                   last modified : 3/26/2017 rhd              *
+c     *                                                              *
+c     ****************************************************************
+c
+      subroutine drive_03_update_nonlocal
+      implicit none
+c
+      integer :: i, n, elem_num
+      double precision :: real_npts
+
+      n = nonlocal_shared_state_size ! for convenience from param_def
+      if( local_debug ) write(iout,9010) n
+c
+      if( gpn .eq. 1 ) then  ! zero global values for elements
+        do i = 1, span
+          elem_num = felem + i - 1
+          if( nonlocal_flags(elem_num) )
+     &         nonlocal_data_n1(elem_num)%state_values(1:n) = zero
+        end do
+      end if
+c
+      do i = 1, span ! add in this gpn nonlocal values
+       elem_num = felem + i - 1
+       if( nonlocal_flags(elem_num) )
+     &       nonlocal_data_n1(elem_num)%state_values(1:n) =
+     &       nonlocal_data_n1(elem_num)%state_values(1:n) +
+     &       local_work%nonlocal_state_blk(i,1:n)
+      end do
+c
+      if( gpn .eq. local_work%num_int_points ) then
+         real_npts = dble( local_work%num_int_points )
+         do i = 1, span
+          elem_num = felem + i - 1
+          if( nonlocal_flags(elem_num) )  then
+            nonlocal_data_n1(elem_num)%state_values(1:n) =
+     &      nonlocal_data_n1(elem_num)%state_values(1:n) / real_npts
+          end if
+         end do
+      end if
+c
+      return
+c
+ 9010 format(/,'      processing nonlocal values. # values: ',i2 )
+c
+      end subroutine drive_03_update_nonlocal
       end subroutine drive_03_update
 c     ****************************************************************
 c     *                                                              *
