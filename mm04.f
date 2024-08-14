@@ -2953,7 +2953,6 @@ c
 c
       local_debug = .false.
       subrt_debug = .false.
-c      subrt_debug = (felem.lt.  3227) .and. (gpn.eq.2)
 c
       local_debug = subrt_debug .or. local_debug
       first_iter  = (step.eq.1).and.(iter.eq.1).and.(gpn.eq.1)
@@ -3007,6 +3006,11 @@ c
               triax(i) = top_nonlocal_vars(i,top_tindex)
             else
               triax(i) = bott_nonlocal_vars(i,bott_tindex)
+            end if
+            if (subrt_debug) then
+             print*,'top_tindx:', top_tindex
+             print*,'bott_tindx', bott_tindex
+             print*, 'Triax: ', triax(i)
             end if
           end if ! damage & triax retreival
 c         update history data
@@ -3229,8 +3233,8 @@ c
       do i = 1, span
 c    
       local_debug = .false.
-c      if((felem+i-1 .eq. 3586) )then
-c          if ((gpn .eq. 1) .or. (gpn .eq. 3))  then
+c      if((felem+i-1 .lt. 3230) )then
+c          if (gpn .eq. 1)  then
 c            local_debug = .true.
 c          end if
 c      end if
@@ -3330,7 +3334,12 @@ c     Add check for case when snaps from tension to compression
 c
       tens_pl_excr = (damage_inc .gt. dtol .and. triax  .gt. zero)
 c        tensile plastic excursion
-c     
+c
+      if (local_debug) then
+       print*, 'damage_inc: ', damage_inc
+       print*, 'triax: ', triax
+       print*, 'tens_pl_escr: ', tens_pl_excr     
+      end if
 c     
 c     ==================================================================
 c     STEP 3b:

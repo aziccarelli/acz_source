@@ -292,7 +292,7 @@ c
             nonlocal_state(1:span,1) = -one
             nonlocal_state(1:span,2) = history1(1:span,1,gpn)
             nonlocal_state(1:span,3) = history1(1:span,19,gpn) 
-            nonlocal_state(1:span,4) = zero  
+            nonlocal_state(1:span,4) = history1(1:span,20,gpn)   
             return
       end if
 c
@@ -2012,7 +2012,7 @@ c
      &  one, two, three, third, six, hprime_init,
      &  dsig(6), deps_plas(6), factor1, factor2, deps_plas_bar,
      &  sig_cur_min_val,
-     &  triax(mxvl), ductile_damage, mises_equiv_eps_pls
+     &  triax, ductile_damage, mises_equiv_eps_pls, local_triax
 
 c
       logical  debug, plastic_loading, nucleation, gurson,
@@ -2203,7 +2203,7 @@ c
             nonlocal_state(relem,1) = -one
             nonlocal_state(relem,2) = history1(relem,1,gpn)
             nonlocal_state(relem,3) = history1(relem,19,gpn) 
-            nonlocal_state(relem,4) = zero  
+            nonlocal_state(relem,4) = history1(relem,20,gpn)  
             return
       end if
 c
@@ -2431,10 +2431,11 @@ c
 c      do i = 1, span
         mises_eqiv_eps_pls = history1(relem,1,gpn)
         ductile_damage     = history1(relem,19,gpn)
+        local_triax        = history1(relem,20,gpn)
         nonlocal_state(relem,1) = -one
         nonlocal_state(relem,2) = mises_eqiv_eps_pls
         nonlocal_state(relem,3) = ductile_damage ! index in getmm_nonlocal_damage_index
-        nonlocal_state(relem,4) = triax(relem)       ! index in getmm_nonlocal_triax_index
+        nonlocal_state(relem,4) = local_triax    ! index in getmm_nonlocal_triax_index
 c      end do
 c
       return
@@ -3112,7 +3113,7 @@ c
      &    history(span,hist_size,*), stress_n(*),
      &    stress_n1(*)
       double precision, intent(inout) :: history1(span,hist_size,*)
-      double precision, intent(out) :: triax_n1(mxvl)
+      double precision, intent(out) :: triax_n1
 c
 c            locals
 c 
@@ -3128,10 +3129,10 @@ c
 c 
 c     init triax. if damage off, do not update hist vars (i.e. return)
 c  
-      triax_n1(1:span) = zero 
+      triax_n1 = zero 
       if( .not. acz_damage_on ) return
 c
-c      local_debug = .false.
+      local_debug = .false.
 c
       if( local_debug ) then
         write(iout,9000)
@@ -3182,7 +3183,7 @@ c
           if( local_debug ) lodeang = zero
 c
         end if ! damage type calcs
-        triax_n1(relem) = triax
+        triax_n1= triax
 c 
 c       
 c       update history data
@@ -3191,13 +3192,14 @@ c
         history1(relem,hoffset+2,gpn) = dmg_intgrnd_n1
         history1(relem,hoffset+3,gpn) = dmg_intgrl_n1
         history1(relem,hoffset+4,gpn) = damage 
-        history1(relem,hoffset+5,gpn) = zero
+        history1(relem,hoffset+5,gpn) = triax_n1
+c
 c
 c 
         if( local_debug ) then 
           write(iout,9020)
           write(iout,9025) i, felem+i-1,
-     &        mises, triax, lodeang, peeq_n1,
+     &        mises, triax_n1, lodeang, peeq_n1,
      &        dmg_intgrnd_n1, dmg_intgrl_n1, damage
         end if
 c  
